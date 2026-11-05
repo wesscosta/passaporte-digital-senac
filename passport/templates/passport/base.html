@@ -1,0 +1,46 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <link rel="icon" href="data:,">
+  <title>{% block title %}Passaporte Digital{% endblock %} | Circuito Senac</title>
+  <link rel="stylesheet" href="{% static 'passport/app.css' %}">
+  <link rel="stylesheet" href="{% static 'passport/visual.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+<a class="skip" href="#conteudo">Ir para o conteúdo</a>
+<header class="top">
+  <div class="top-inner">
+    <a class="brand" href="{% url 'home' %}" aria-label="Circuito Senac, início">
+      <span class="brand-wheel" aria-hidden="true"></span>
+      <span class="brand-label"><span class="brand-title">Circuito Senac</span><small>Passaporte digital</small></span>
+    </a>
+    <a class="team-link" href="{% url 'staff_home' %}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.25"/><path d="M5.5 20v-1.5A6.5 6.5 0 0 1 12 12a6.5 6.5 0 0 1 6.5 6.5V20"/></svg>
+      <span>Área da equipe</span>
+    </a>
+  </div>
+</header>
+<div class="demo-banner">Ambiente de demonstração. Não use dados reais.</div>
+<main id="conteudo" class="container" tabindex="-1">
+  {% if messages %}
+    <div class="messages" aria-live="polite">
+      {% for message in messages %}<div class="message {{ message.tags }}">{{ message }}</div>{% endfor %}
+    </div>
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+<footer class="footer">
+  <div class="container footer-inner">
+    <div><strong>Circuito Senac</strong><span>Passaporte digital · versão de desenvolvimento</span></div>
+    <span class="footer-wheel" aria-hidden="true"></span>
+  </div>
+</footer>
+{% block scripts %}{% endblock %}
+</body>
+</html>
+

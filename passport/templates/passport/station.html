@@ -1,0 +1,28 @@
+{% extends "passport/base.html" %}
+{% load static %}
+{% block title %}Tela do estande{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar aos estandes</a>
+<section class="station-screen" data-station data-refresh-ms="{{ milliseconds }}" aria-labelledby="station-title">
+  <div class="station-heading">
+    <div><p class="eyebrow">Estande do Circuito Senac</p><h1 id="station-title">{{ stand.name }}</h1><p>Deixe esta tela visível para o visitante registrar sua passagem.</p></div>
+    {% include "passport/_area_icon.html" with stand=stand only %}
+  </div>
+  <div class="station-grid">
+    <div class="station-scan">
+      <div class="step-label"><span>01</span> ESCANEIE COM O CELULAR</div>
+      <div class="station-qr-frame"><img class="station-qr" src="data:image/svg+xml;base64,{{ qr }}" alt="QR code de visita ao estande"></div>
+      <p>Abra o leitor do passaporte ou a câmera do celular e confirme a visita.</p>
+    </div>
+    <div class="station-manual">
+      <div class="step-label"><span>02</span> OU INFORME O CÓDIGO</div>
+      <p>Se preferir, digite no passaporte:</p>
+      <strong class="station-code">{{ code }}</strong>
+      <p class="station-update" data-station-status role="status">O código é atualizado automaticamente a cada minuto.</p>
+      <a class="refresh-link" href="{% url 'station' stand.pk %}">Atualizar código agora</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
+{% block scripts %}<script src="{% static 'passport/station.js' %}" defer></script>{% endblock %}
+

@@ -1,0 +1,11 @@
+{% extends "passport/base.html" %}
+{% block title %}Confirmar visita{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'passport' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao passaporte</a>
+<div class="form-card">
+  <p class="eyebrow">Você está em</p><h1>{{ stand.name }}</h1>
+  <p>Confirme sua visita para registrar o carimbo. O código pode expirar após a atualização do estande.</p>
+  <form method="post">{% csrf_token %}<button class="button" type="submit">Confirmar carimbo {% include "passport/_icon.html" with icon="check" only %}</button></form>
+</div>
+{% endblock %}
+

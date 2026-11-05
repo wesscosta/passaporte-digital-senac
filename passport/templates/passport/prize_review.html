@@ -1,0 +1,13 @@
+{% extends "passport/base.html" %}
+{% block title %}Confirmar entrega{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'prize_lookup' %}">{% include "passport/_icon.html" with icon="back" only %} Nova consulta</a>
+<div class="form-card">
+  <p class="eyebrow">Setor de premiação</p><h1>Confirmar entrega</h1>
+  <p>Participante: <strong>{{ ticket.passport.name }}</strong></p>
+  {% if already %}<p class="notice">A entrega deste passaporte já foi registrada. Não entregue novamente.</p>
+  {% else %}<p>O passaporte atende aos estandes obrigatórios. Confirme somente após entregar a premiação ou o brinde.</p>
+  <form method="post">{% csrf_token %}<button class="button" type="submit">Confirmar entrega {% include "passport/_icon.html" with icon="check" only %}</button></form>{% endif %}
+</div>
+{% endblock %}
+

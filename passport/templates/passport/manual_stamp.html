@@ -1,0 +1,40 @@
+{% extends "passport/base.html" %}
+{% load static %}
+{% block title %}Registrar visita{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'passport' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao passaporte</a>
+<header class="page-heading narrow-heading">
+  <div><p class="eyebrow">Mais uma descoberta</p><h1>Registrar visita</h1><p>Use o QR code ou digite o código exibido no estande.</p></div>
+</header>
+<div class="visit-layout">
+  <section id="leitor" class="visit-option scanner-card" data-qr-scanner data-decoder-url="{% static 'passport/vendor/jsQR.min.js' %}" aria-labelledby="scanner-title">
+    <div class="option-heading">
+      <span class="option-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 9V5a1 1 0 0 1 1-1h4m6 0h4a1 1 0 0 1 1 1v4M4 15v4a1 1 0 0 0 1 1h4m6 0h4a1 1 0 0 0 1-1v-4M8 12h8"/></svg></span>
+      <div><p class="eyebrow">Opção 01</p><h2 id="scanner-title">Escanear QR code</h2></div>
+    </div>
+    <p>Aponte a câmera para o QR code na tela do estande.</p>
+    <div class="camera-stage" data-camera-stage hidden>
+      <video data-camera-video playsinline muted aria-label="Imagem da câmera para leitura do QR code"></video>
+      <span class="camera-frame" aria-hidden="true"></span>
+    </div>
+    <canvas data-camera-canvas hidden></canvas>
+    <p class="scanner-status" data-scanner-status role="status" aria-live="polite">A câmera será aberta somente com sua autorização.</p>
+    <div class="scanner-actions">
+      <button type="button" class="button" data-scanner-start hidden>Ativar câmera {% include "passport/_icon.html" with icon="external" only %}</button>
+      <button type="button" class="button secondary" data-scanner-stop hidden>Fechar câmera</button>
+    </div>
+    <p class="scanner-hint">A leitura acontece no aparelho. Se não conseguir, digite o código abaixo ou use a câmera do celular.</p>
+    <noscript><p class="notice">Para abrir a câmera nesta página, ative o JavaScript. O código manual continua disponível abaixo.</p></noscript>
+  </section>
+  <section id="codigo" class="visit-option manual-card" aria-labelledby="manual-title">
+    <div class="option-heading">
+      <span class="option-icon option-icon-alt" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h.01M11 9h.01M15 9h.01M7 13h.01M11 13h.01M15 13h.01M7 16h10"/></svg></span>
+      <div><p class="eyebrow">Opção 02</p><h2 id="manual-title">Digitar código</h2></div>
+    </div>
+    <p>Escolha o estande e informe os seis números mostrados pela equipe.</p>
+    <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button" type="submit">Registrar carimbo {% include "passport/_icon.html" with icon="forward" only %}</button></form>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'passport/scanner.js' %}" defer></script>{% endblock %}
+

@@ -1,0 +1,11 @@
+{% extends "passport/base.html" %}
+{% block title %}Premiação{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Painel da equipe</a>
+<div class="form-card">
+  <p class="eyebrow">Área da equipe</p><h1>Setor de premiação</h1>
+  <p>Leia o QR code do participante com um dispositivo conectado à sua conta ou informe o código abaixo. A leitura não registra a entrega.</p>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button" type="submit">Consultar passaporte {% include "passport/_icon.html" with icon="forward" only %}</button></form>
+</div>
+{% endblock %}
+

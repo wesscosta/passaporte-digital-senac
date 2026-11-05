@@ -1,0 +1,29 @@
+{% extends "passport/base.html" %}
+{% block title %}Painel da equipe{% endblock %}
+{% block content %}
+<header class="page-heading">
+  <div><p class="eyebrow">Área da equipe</p><h1>Painel da equipe</h1><p>Olá, {{ request.user.get_username }}. Escolha um estande para exibir o QR code aos visitantes.</p></div>
+  <span class="role-badge"><span class="status-dot" aria-hidden="true"></span> Acesso autorizado</span>
+</header>
+<section aria-labelledby="estandes-title">
+  <div class="section-heading compact"><div><p class="eyebrow">Circuito Senac</p><h2 id="estandes-title">Seus estandes</h2></div><p>Selecione a área onde você está atendendo.</p></div>
+  <ul class="staff-grid">
+    {% for stand in stands %}
+    <li><a class="staff-card" href="{% url 'station' stand.pk %}">
+      {% include "passport/_area_icon.html" with stand=stand only %}
+      <span class="staff-card-copy"><strong>{{ stand.name }}</strong><span>Exibir QR code e código</span></span>
+      <span class="card-arrow">{% include "passport/_icon.html" with icon="external" only %}</span>
+    </a></li>
+    {% empty %}<li class="empty-state">Nenhum estande atribuído a esta conta. Procure a organização.</li>{% endfor %}
+  </ul>
+</section>
+{% if prize_allowed %}
+<section class="team-reward" aria-labelledby="team-reward-title">
+  <span class="reward-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="1"/><path d="M3 7h18v3H3zm9 0v13M12 7c-1.4 0-3.5-.1-3.5-2A1.8 1.8 0 0 1 12 4.5C12.4 3.5 13 3 14 3a1.8 1.8 0 0 1 1.5 2C15.5 6.9 13.4 7 12 7Z"/></svg></span>
+  <div><p class="eyebrow">Operação separada</p><h2 id="team-reward-title">Setor de premiação</h2><p>Consulte o passaporte e confirme a entrega do brinde.</p></div>
+  <a class="button" href="{% url 'prize_lookup' %}">Abrir premiação {% include "passport/_icon.html" with icon="forward" only %}</a>
+</section>
+{% endif %}
+<form method="post" action="{% url 'staff_logout' %}" class="section-actions">{% csrf_token %}<button class="button secondary" type="submit">Sair da conta</button></form>
+{% endblock %}
+
