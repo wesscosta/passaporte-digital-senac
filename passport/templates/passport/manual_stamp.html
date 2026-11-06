@@ -32,7 +32,7 @@
       <div><p class="eyebrow">Opção 02</p><h2 id="manual-title">Digitar código</h2></div>
     </div>
     <p>Escolha o estande e informe os seis números mostrados pela equipe.</p>
-    <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button" type="submit">Registrar carimbo {% include "passport/_icon.html" with icon="forward" only %}</button></form>
+    <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button" type="submit">Registrar carimbo</button></form>
   </section>
 </div>
 {% endblock %}

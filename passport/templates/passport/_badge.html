@@ -1,13 +1,23 @@
 {# Insígnia de um estande. Conquistada somente com carimbo registrado no servidor (row.visited). #}
 <li class="badge badge-{{ row.area|default:'default' }}{% if row.visited %} is-earned{% else %} is-pending{% endif %}{% if row.new %} just-stamped{% endif %}">
-  <svg class="badge-seal" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
-    <circle class="seal-disc" cx="60" cy="60" r="56"/>
-    <circle class="seal-rays" cx="60" cy="60" r="47" pathLength="120"/>
-    <circle class="seal-rays seal-rays-2" cx="60" cy="60" r="51" pathLength="120"/>
-    <circle class="seal-core" cx="60" cy="60" r="34"/>
-    <g class="seal-glyph" transform="translate(33.6 33.6) scale(2.2)">{% include "passport/_area_glyph.html" with area=row.area only %}</g>
-    {% if row.visited %}<g class="seal-check"><circle cx="97" cy="23" r="15"/><path d="m90 23 5 5 9-10"/></g>{% else %}<circle class="seal-outline" cx="60" cy="60" r="56"/>{% endif %}
-  </svg>
+  <div class="badge-figure" aria-hidden="true">
+    {% if row.area == "tech" %}{% include "passport/_badge_art.html" with art="tecnologia" only %}
+    {% elif row.area == "arts" %}{% include "passport/_badge_art.html" with art="artes" only %}
+    {% elif row.area == "food" %}{% include "passport/_badge_art.html" with art="gastronomia" only %}
+    {% elif row.area == "fashion" %}{% include "passport/_badge_art.html" with art="moda" only %}
+    {% elif row.area == "commerce" %}{% include "passport/_badge_art.html" with art="gestao" only %}
+    {% elif row.area == "health" %}{% include "passport/_badge_art.html" with art="saude" only %}
+    {% else %}{# Área não identificada: selo neutro, sem arte oficial. #}
+    <svg class="badge-seal" viewBox="0 0 120 120" focusable="false">
+      <circle class="seal-disc" cx="60" cy="60" r="56"/>
+      <circle class="seal-rays" cx="60" cy="60" r="47" pathLength="120"/>
+      <circle class="seal-rays seal-rays-2" cx="60" cy="60" r="51" pathLength="120"/>
+      <circle class="seal-core" cx="60" cy="60" r="34"/>
+      <g class="seal-glyph" transform="translate(33.6 33.6) scale(2.2)">{% include "passport/_area_glyph.html" with area=row.area only %}</g>
+    </svg>
+    {% endif %}
+    <svg class="seal-mark" viewBox="0 0 120 120" focusable="false">{% if row.visited %}<g class="seal-check"><circle cx="99" cy="21" r="15"/><path d="m92 21 5 5 9-10"/></g>{% else %}<circle class="seal-outline" cx="60" cy="60" r="58"/>{% endif %}</svg>
+  </div>
   <div class="badge-copy">
     <h3>{{ row.stand.name }}{% if row.new %} <span class="stamp-new">Novo</span>{% endif %}</h3>
     {% if row.visited %}<p class="badge-state">{% include "passport/_icon.html" with icon="check" only %} Conquistada às <time datetime="{{ row.stamped_at|date:'c' }}">{{ row.stamped_at|time:"H:i" }}</time></p>

@@ -478,3 +478,137 @@ class ConcurrencyTests(TransactionTestCase):
         event.refresh_from_db()
         self.assertEqual(event.gap_seconds, 600)
         self.assertEqual(AuditEntry.objects.count(), 1)
+
+
+
+PROXY_A = "192.0.2.10"        # proxy de borda fictício (TEST-NET-1)
+PROXY_B = "192.0.2.20"        # proxy interno fictício
+PROXY_V6 = "2001:db8::10"     # proxy IPv6 fictício (documentação)
+CLIENT = "203.0.113.7"        # visitante fictício (TEST-NET-3)
+SPOOF = "198.51.100.99"       # endereço que um atacante tentaria impor
+
+
+class ClientAddressTests(TestCase):
+    def addr(self, remote, forwarded=None):
+        from django.test import RequestFactory
+        from passport.services import client_address
+        extra = {"REMOTE_ADDR": remote}
+        if forwarded is not None:
+            extra["HTTP_X_FORWARDED_FOR"] = forwarded
+        return client_address(RequestFactory().get("/", **extra))
+
+    # Padrão: nenhum proxy configurado.
+    def test_default_ignores_forwarded_header(self):
+        self.assertEqual(self.addr(CLIENT, SPOOF), CLIENT)
+        self.assertEqual(self.addr(PROXY_A, SPOOF), PROXY_A)
+
+    # Acesso direto à aplicação com cabeçalho forjado.
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_direct_access_with_spoofed_header_is_ignored_ipv4(self):
+        self.assertEqual(self.addr(CLIENT, SPOOF), CLIENT)
+        self.assertEqual(self.addr(CLIENT, f"{SPOOF}, {PROXY_A}"), CLIENT)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_V6,))
+    def test_direct_access_with_spoofed_header_is_ignored_ipv6(self):
+        self.assertEqual(self.addr("2001:db8::77", SPOOF), "2001:db8::77")
+
+    # Um proxy de confiança.
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_one_trusted_proxy_uses_address_it_appended(self):
+        self.assertEqual(self.addr(PROXY_A, CLIENT), CLIENT)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_one_trusted_proxy_ignores_spoofed_left_entries(self):
+        self.assertEqual(self.addr(PROXY_A, f"{SPOOF}, {CLIENT}"), CLIENT)
+        self.assertEqual(self.addr(PROXY_A, f"{PROXY_A}, {CLIENT}"), CLIENT)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_V6,))
+    def test_one_trusted_ipv6_proxy_with_ipv6_client(self):
+        self.assertEqual(self.addr(PROXY_V6, "2001:DB8:0:0::1"), "2001:db8::1")
+
+    @override_settings(TRUSTED_PROXIES=("192.0.2.0/28",))
+    def test_trusted_network_in_cidr(self):
+        self.assertEqual(self.addr(PROXY_A, CLIENT), CLIENT)
+        self.assertEqual(self.addr("192.0.2.200", SPOOF), "192.0.2.200")
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_ipv4_mapped_ipv6_is_treated_as_ipv4(self):
+        self.assertEqual(self.addr(f"::ffff:{PROXY_A}", f"::ffff:{CLIENT}"), CLIENT)
+
+    # Dois proxies de confiança.
+    @override_settings(TRUSTED_PROXIES=(PROXY_A, PROXY_B))
+    def test_two_trusted_proxies_walk_chain(self):
+        # cliente -> PROXY_A -> PROXY_B -> aplicação
+        self.assertEqual(self.addr(PROXY_B, f"{SPOOF}, {CLIENT}, {PROXY_A}"), CLIENT)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A, PROXY_B))
+    def test_two_proxies_client_bypassing_edge_proxy_cannot_choose(self):
+        # Cliente que alcança PROXY_B diretamente e finge ter passado por PROXY_A.
+        self.assertEqual(self.addr(PROXY_B, f"{SPOOF}, {PROXY_A}, {CLIENT}"), CLIENT)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_B,))
+    def test_untrusted_proxy_in_chain_stops_the_walk(self):
+        # PROXY_A não é de confiança: o endereço dele é o que conta, não o que ele declara.
+        self.assertEqual(self.addr(PROXY_B, f"{CLIENT}, {PROXY_A}"), PROXY_A)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_untrusted_proxy_connection_ignores_header(self):
+        self.assertEqual(self.addr(PROXY_B, CLIENT), PROXY_B)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A, PROXY_B))
+    def test_chain_made_only_of_trusted_proxies_uses_leftmost(self):
+        self.assertEqual(self.addr(PROXY_B, PROXY_A), PROXY_A)
+
+    # Cadeias e cabeçalhos inconsistentes: volta ao endereço do proxy.
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_inconsistent_header_falls_back_to_proxy_address(self):
+        for header in [None, "", " , ", "não-é-ip", f"{CLIENT}:5555", f"[{PROXY_V6}]:443",
+                       f"{CLIENT},,", "unknown", f"{CLIENT} {SPOOF}", "300.1.1.1"]:
+            with self.subTest(header=header):
+                self.assertEqual(self.addr(PROXY_A, header), PROXY_A)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_invalid_entry_left_of_client_is_never_reached(self):
+        self.assertEqual(self.addr(PROXY_A, f"lixo, {CLIENT}"), CLIENT)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_too_long_chain_falls_back(self):
+        from passport.services import MAX_FORWARDED_ENTRIES
+        header = ", ".join([CLIENT] * (MAX_FORWARDED_ENTRIES + 1))
+        self.assertEqual(self.addr(PROXY_A, header), PROXY_A)
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_invalid_remote_addr_is_returned_unchanged(self):
+        self.assertEqual(self.addr("", SPOOF), "unknown")
+        self.assertEqual(self.addr("lixo", SPOOF), "lixo")
+
+    # Configuração.
+    def test_settings_parser_validates_entries(self):
+        from django.core.exceptions import ImproperlyConfigured
+        from config.settings import _trusted_proxies
+        self.assertEqual(_trusted_proxies(""), ())
+        self.assertEqual(_trusted_proxies(f" {PROXY_A} , 2001:db8::/64 "), (f"{PROXY_A}/32", "2001:db8::/64"))
+        for raw in ["0.0.0.0/0", "::/0", "192.0.2.1/24", "proxy.local", "192.0.2.300"]:
+            with self.subTest(raw=raw), self.assertRaises(ImproperlyConfigured):
+                _trusted_proxies(raw)
+
+    # Efeito nos limites de tentativas do login.
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_login_limit_counts_each_client_behind_trusted_proxy(self):
+        from passport.auth import MAX_PER_ADDRESS
+        client, url = Client(), reverse("staff_login")
+        for i in range(MAX_PER_ADDRESS):
+            client.post(url, {"username": f"conta{i}", "password": "x"}, REMOTE_ADDR=PROXY_A, HTTP_X_FORWARDED_FOR=CLIENT)
+        blocked = client.post(url, {"username": "outra", "password": "x"}, REMOTE_ADDR=PROXY_A, HTTP_X_FORWARDED_FOR=CLIENT)
+        self.assertContains(blocked, "Muitas tentativas de acesso")
+        other = client.post(url, {"username": "outra", "password": "x"}, REMOTE_ADDR=PROXY_A, HTTP_X_FORWARDED_FOR="203.0.113.8")
+        self.assertNotContains(other, "Muitas tentativas de acesso")
+
+    @override_settings(TRUSTED_PROXIES=(PROXY_A,))
+    def test_direct_attacker_cannot_escape_address_limit_by_rotating_header(self):
+        from passport.auth import MAX_PER_ADDRESS
+        client, url = Client(), reverse("staff_login")
+        for i in range(MAX_PER_ADDRESS):
+            client.post(url, {"username": f"conta{i}", "password": "x"}, REMOTE_ADDR=CLIENT, HTTP_X_FORWARDED_FOR=f"198.51.100.{i}")
+        blocked = client.post(url, {"username": "outra", "password": "x"}, REMOTE_ADDR=CLIENT, HTTP_X_FORWARDED_FOR="198.51.100.250")
+        self.assertContains(blocked, "Muitas tentativas de acesso")

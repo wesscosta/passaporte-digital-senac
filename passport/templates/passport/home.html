@@ -9,20 +9,20 @@
     <p>Explore os espaços, descubra novas possibilidades e colecione carimbos pelo caminho.</p>
     {% if event %}
       {% if p %}
-      <div class="actions"><a class="button" href="{% url 'passport' %}">Abrir meu passaporte {% include "passport/_icon.html" with icon="forward" only %}</a></div>
+      <div class="actions"><a class="button" href="{% url 'passport' %}">Abrir meu passaporte</a></div>
       {% else %}
       <div class="actions">
-        <a class="button" href="{% url 'register' %}">Criar meu passaporte {% include "passport/_icon.html" with icon="forward" only %}</a>
+        <a class="button" href="{% url 'register' %}">Criar meu passaporte</a>
         <a class="button secondary" href="{% url 'recover' %}">Entrar no passaporte</a>
       </div>
       {% endif %}
     {% else %}<p class="notice">O evento não está disponível neste momento.</p>{% endif %}
     <p class="hero-note">Acesse pelo celular · Não precisa instalar aplicativo</p>
   </div>
+  {# Identidade oficial: logo e grafismo decorativos (o nome já está no título e no cabeçalho). #}
   <div class="hero-art" aria-hidden="true">
-    <div class="hero-art-wheel"></div>
-    <div class="brand-card"><img src="{% static 'passport/marca-circuito.webp' %}" width="650" height="290" alt=""></div>
-    <span class="hero-sticker">Explore<br>e descubra</span>
+    <img class="hero-grafismo" src="{% static 'passport/identity/grafismo.png' %}" width="400" height="400" alt="" decoding="async">
+    <img class="hero-logo" src="{% static 'passport/identity/logo-circuito.svg' %}" width="1299" height="549" alt="" decoding="async">
   </div>
 </section>
 <section class="how-section" aria-labelledby="como-funciona">

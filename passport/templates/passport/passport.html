@@ -12,13 +12,10 @@
   {% if total %}<div class="progress" role="progressbar" aria-label="Insígnias conquistadas" aria-valuenow="{{ done }}" aria-valuemin="0" aria-valuemax="{{ total }}"><div style="width:{% widthratio done total 100 %}%"></div></div>{% endif %}
 </section>
 {% if eligible and not redeemed %}{% include "passport/_reward.html" with first=True %}{% endif %}
-<section class="action-panel" aria-labelledby="next-step">
-  <div><p class="eyebrow">Está em um estande?</p><h2 id="next-step">Registre sua visita</h2><p>Leia o QR code ou informe o código da tela do estande.</p>{% include "passport/_next_stamp.html" %}</div>
-  <div class="actions">
-    <a class="button" href="{% url 'manual_stamp' %}#leitor">Escanear QR code {% include "passport/_icon.html" with icon="qr" only %}</a>
-    <a class="button secondary" href="{% url 'manual_stamp' %}#codigo">Digitar código</a>
-  </div>
-</section>
+<a class="action-panel" href="{% url 'manual_stamp' %}" aria-labelledby="next-step" aria-describedby="visit-help{% if next_stamp_at %} next-stamp-message{% endif %}">
+  <div><p class="eyebrow">Está em um estande?</p><h2 id="next-step">Registre sua visita</h2><p id="visit-help">Escaneie o QR code ou digite o código exibido no estande.</p>{% include "passport/_next_stamp.html" %}</div>
+  <span class="action-prompt" aria-hidden="true">Continuar</span>
+</a>
 <section aria-labelledby="areas">
   <div class="section-heading compact"><div><p class="eyebrow">Descubra cada espaço</p><h2 id="areas">Suas insígnias</h2></div><p>Cada carimbo confirmado conquista a insígnia do espaço.{% if gap %} Aguarde {{ gap }} entre carimbos registrados.{% endif %}</p></div>
   {% if rows %}<ul class="badge-grid">{% for row in rows %}{% include "passport/_badge.html" %}{% endfor %}</ul>

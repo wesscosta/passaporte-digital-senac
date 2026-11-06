@@ -40,6 +40,21 @@ O PostgreSQL local fica em 127.0.0.1:55432, em volume Docker do projeto. As cred
 
 Os limites de tentativas estão implementados parcialmente. Leia docs/VALIDACAO.md antes de avaliar qualquer implantação.
 
+## Implantação atrás de proxy
+
+Os limites de tentativas por endereço usam REMOTE_ADDR. Atrás de um proxy reverso, sem configuração, todos os visitantes aparecem com o endereço do proxy e dividem o mesmo contador.
+
+DJANGO_TRUSTED_PROXIES recebe os IPs ou redes (CIDR) exatos dos proxies, separados por vírgula, por exemplo (fictício) `192.0.2.10,2001:db8::10`. Condições para que o endereço do visitante seja confiável:
+
+- A aplicação não pode ser acessível diretamente, só pelos proxies listados (firewall, rede privada ou bind em interface interna). Se um proxy listado também aceitar conexões de fora, ele precisa ser a borda ou estar protegido da mesma forma.
+- Cada proxy listado deve acrescentar o endereço de quem o conectou ao X-Forwarded-For (no nginx, `$proxy_add_x_forwarded_for`). Proxies que substituem o cabeçalho também funcionam; proxies que repassam o valor do cliente sem acrescentar nada não podem ser listados.
+- Liste todos os proxies da cadeia. Se faltar o de borda, todos os visitantes contarão com o endereço dele; se sobrar uma rede ampla, máquinas dentro dela poderão escolher o endereço contado.
+- Forwarded (RFC 7239) e X-Real-IP não são lidos.
+
+Comportamento seguro em caso de inconsistência: sem a lista, ou com conexão de fora dela, o cabeçalho é ignorado. Cabeçalho ausente, entrada inválida ou com porta, ou cadeia com mais de 20 entradas fazem valer o endereço do proxy. Configuração inválida impede a inicialização.
+
+Visitantes atrás do mesmo NAT (Wi-Fi do evento, operadora móvel com CGNAT) compartilham um endereço e somam tentativas no mesmo contador por endereço. Os limites por endereço precisam ser dimensionados para a rede do local antes do evento; os limites por conta e por contato não são afetados.
+
 ## Equipe e dados demonstrativos
 
 O comando seed_demo cria as seis áreas e o grupo Premiação. Não cria senhas nem contas de equipe. Para configurar usuários locais, crie uma conta administrativa de desenvolvimento com:

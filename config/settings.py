@@ -67,6 +67,34 @@ LOGGING = {
     "handlers": {"security": {"class": "logging.StreamHandler", "formatter": "security"}},
     "loggers": {"passport.security": {"handlers": ["security"], "level": "INFO", "propagate": False}},
 }
+# Proxies reversos de confiança, como lista de IPs ou redes (CIDR) separados por vírgula.
+# Vazio (padrão) = usar só REMOTE_ADDR e ignorar X-Forwarded-For. O cabeçalho só é lido quando
+# a conexão vem de um endereço desta lista. Não use redes amplas: qualquer máquina dentro delas
+# poderia escolher o endereço contado nos limites. Veja README, "Implantação atrás de proxy".
+if os.environ.get("DJANGO_TRUSTED_PROXY_HOPS", "0").strip() not in ("", "0"):
+    raise ImproperlyConfigured(
+        "DJANGO_TRUSTED_PROXY_HOPS foi substituído por DJANGO_TRUSTED_PROXIES (lista de IPs ou redes dos proxies)."
+    )
+
+
+def _trusted_proxies(raw):
+    import ipaddress
+
+    networks = []
+    for item in (part.strip() for part in raw.split(",")):
+        if not item:
+            continue
+        try:
+            network = ipaddress.ip_network(item, strict=True)
+        except ValueError as exc:
+            raise ImproperlyConfigured(f"DJANGO_TRUSTED_PROXIES: endereço ou rede inválida: {item!r}.") from exc
+        if network.prefixlen == 0:
+            raise ImproperlyConfigured("DJANGO_TRUSTED_PROXIES não aceita 0.0.0.0/0 nem ::/0.")
+        networks.append(str(network))
+    return tuple(networks)
+
+
+TRUSTED_PROXIES = _trusted_proxies(os.environ.get("DJANGO_TRUSTED_PROXIES", ""))
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG

@@ -6,7 +6,7 @@
   <p class="eyebrow">Seu passaporte continua aqui</p><h1>Entrar no passaporte</h1>
   <p>Use o contato e o PIN do cadastro. Ao entrar aqui, o passaporte deixa de ficar aberto em outros aparelhos.</p>
   {% if pending_stand %}<p class="pending-visit">Ao entrar, você confirma a visita a <strong>{{ pending_stand.name }}</strong>.</p>{% endif %}
-  <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button form-submit" type="submit">Entrar no passaporte {% include "passport/_icon.html" with icon="forward" only %}</button></form>
+  <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button form-submit" type="submit">Entrar no passaporte</button></form>
   <p class="form-footer">Ainda não se cadastrou? <a href="{% url 'register' %}">Criar passaporte</a></p>
   <p>Esqueceu o PIN? Procure a equipe de organização. O procedimento de recuperação assistida ainda precisa ser definido.</p>
 </div>

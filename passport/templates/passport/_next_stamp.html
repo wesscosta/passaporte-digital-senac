@@ -1,1 +1,1 @@
-{% if next_stamp_at %}<div class="next-stamp">Seu próximo carimbo fica disponível às <strong><time datetime="{{ next_stamp_at|date:'c' }}">{{ next_stamp_at|time:"H:i" }}</time></strong>.</div>{% endif %}
+{% if next_stamp_at %}<div id="next-stamp-message" class="next-stamp">Seu próximo carimbo fica disponível às <strong><time datetime="{{ next_stamp_at|date:'c' }}">{{ next_stamp_at|time:"H:i" }}</time></strong>.</div>{% endif %}

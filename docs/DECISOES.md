@@ -28,6 +28,8 @@ Monólito Django com HTML renderizado no servidor, PostgreSQL, CSS local e códi
 
 Redis, CDN e arquitetura distribuída não são pressupostos; avaliar conforme medições e implantação. Estáticos precisam de cache e compressão, sem armazenar dados pessoais em cache compartilhado. WSGI e ASGI são alternativas de implantação; trocar para ASGI não torna automaticamente assíncronas as views ou as operações de banco já escritas.
 
+Decisão de 06/11 (endereço do cliente): X-Forwarded-For só é considerado quando a conexão vem de um proxy listado em DJANGO_TRUSTED_PROXIES; a lista vem vazia e não há presunção sobre as redes de produção. Em inconsistência, vale o endereço do proxy.
+
 ## Questões em aberto
 
 - Quantidade de estandes e regra final de conclusão.
@@ -37,3 +39,4 @@ Redis, CDN e arquitetura distribuída não são pressupostos; avaliar conforme m
 - Aprovação institucional de conteúdo, identidade visual e textos, inclusive do desenho das insígnias derivado dos selos do PDF.
 - Associação definitiva entre estandes e áreas, caso os nomes não coincidam com as seis áreas de referência.
 - Limites aceitáveis do intervalo entre carimbos e quem pode ser gestor.
+- Endereços dos proxies de produção, bloqueio de acesso direto e limites por endereço adequados ao NAT da rede do evento.

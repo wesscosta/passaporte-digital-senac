@@ -1,0 +1,5 @@
+{% load static %}{# Arte oficial do selo da área. Decorativa: o nome do estande e o estado estão no texto da insígnia. WebP leve com SVG de reserva. #}
+<picture class="badge-art">
+  <source srcset="{% static 'passport/identity/'|add:art|add:'.webp' %}" type="image/webp">
+  <img src="{% static 'passport/identity/'|add:art|add:'.svg' %}" width="448" height="448" alt="" loading="lazy" decoding="async">
+</picture>

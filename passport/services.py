@@ -1,8 +1,11 @@
 import hashlib
-import logging
 import hmac
+import ipaddress
+import logging
 import secrets
 from datetime import timedelta
+from functools import lru_cache
+from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
@@ -61,9 +64,59 @@ def limit_reset(kind, value):
     return RateBucket.objects.filter(key=rate_key(kind, value)).delete()[0] > 0
 
 
+MAX_FORWARDED_ENTRIES = 20
+
+
+@lru_cache(maxsize=8)
+def _proxy_networks(entries):
+    return tuple(ipaddress.ip_network(entry) for entry in entries)
+
+
+def _parse_ip(value):
+    try:
+        address = ipaddress.ip_address(value.strip())
+    except ValueError:
+        return None
+    if address.version == 6 and address.ipv4_mapped:
+        return address.ipv4_mapped
+    return address
+
+
 def client_address(request):
-    # Apenas REMOTE_ADDR; encaminhamento de proxy requer configuração confiável.
-    return request.META.get("REMOTE_ADDR", "unknown")
+    """Endereço usado nos limites de tentativas.
+
+    Regra (documentada no README, "Implantação atrás de proxy"):
+    - Sem TRUSTED_PROXIES, ou se REMOTE_ADDR não pertence a um proxy de confiança,
+      X-Forwarded-For é ignorado e vale REMOTE_ADDR. Assim, um acesso direto não escolhe
+      o endereço, mesmo enviando o cabeçalho.
+    - Vindo de proxy de confiança, a cadeia é lida da direita para a esquerda, pulando
+      proxies de confiança; o primeiro endereço que não é de confiança é o cliente.
+      Entradas mais à esquerda, que o cliente pode ter forjado, nunca são lidas.
+    - Cadeia inconsistente (cabeçalho ausente, entrada inválida ou com porta, cadeia longa
+      demais): vale REMOTE_ADDR, isto é, o endereço do proxy. Todos os pedidos nessa
+      situação dividem um contador, o que é mais restritivo, nunca mais permissivo.
+    - Se todas as entradas forem de proxies de confiança, vale a mais à esquerda.
+    """
+    remote_raw = request.META.get("REMOTE_ADDR") or "unknown"
+    remote = _parse_ip(remote_raw)
+    trusted = _proxy_networks(tuple(getattr(settings, "TRUSTED_PROXIES", ())))
+    if remote is None:
+        return remote_raw
+    if not trusted or not any(remote in net for net in trusted):
+        return str(remote)
+    header = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    chain = [part for part in header.split(",")]
+    if not header.strip() or len(chain) > MAX_FORWARDED_ENTRIES:
+        return str(remote)
+    candidate = None
+    for raw in reversed(chain):
+        address = _parse_ip(raw)
+        if address is None:
+            return str(remote)
+        candidate = address
+        if not any(address in net for net in trusted):
+            return str(address)
+    return str(candidate)
 
 
 def station_code(stand, at=None):
