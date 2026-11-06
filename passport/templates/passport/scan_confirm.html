@@ -4,8 +4,16 @@
 <a class="back" href="{% url 'passport' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao passaporte</a>
 <div class="form-card">
   <p class="eyebrow">Você está em</p><h1>{{ stand.name }}</h1>
+  {% if expired %}
+  <p>O código deste QR já mudou. Leia o QR do estande novamente ou digite o código que aparece na tela.</p>
+  <div class="actions">
+    <a class="button" href="{% url 'manual_stamp' %}#leitor">Ler o QR novamente</a>
+    <a class="button secondary" href="{% url 'manual_stamp' %}#codigo">Digitar código</a>
+  </div>
+  {% else %}
   <p>Confirme sua visita para registrar o carimbo. O código pode expirar após a atualização do estande.</p>
+  {% include "passport/_next_stamp.html" %}
   <form method="post">{% csrf_token %}<button class="button" type="submit">Confirmar carimbo {% include "passport/_icon.html" with icon="check" only %}</button></form>
+  {% endif %}
 </div>
 {% endblock %}
-

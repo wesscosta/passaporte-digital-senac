@@ -13,6 +13,7 @@ from passport.services import (
     CONSENT_VERSION, digest, eligible, find_ticket, issue_ticket, record_stamp,
     redeem, station_code, valid_station_code,
 )
+from passport.views import next_stamp_at
 
 FAST_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
@@ -159,6 +160,71 @@ class PassportTests(TestCase):
         token = client.cookies["csrftoken"].value
         self.assertEqual(client.post(url, {"csrfmiddlewaretoken": token}).status_code, 302)
         self.assertEqual(Stamp.objects.count(), 1)
+
+    def test_scan_without_session_offers_registration_and_resumes_visit(self):
+        url = reverse("scan_stamp", args=[self.a.pk, station_code(self.a)])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Visita a Área A")
+        self.assertContains(response, reverse("register"))
+        self.assertContains(response, reverse("recover"))
+        self.assertContains(self.client.get(reverse("register")), "você confirma a visita a <strong>Área A</strong>")
+        response = self.client.post(reverse("register"), {
+            "name": "Pessoa", "contact": "85999998888", "pin": "123456", "pin_confirm": "123456",
+        })
+        self.assertRedirects(response, url)
+        self.assertContains(self.client.get(url), "Confirmar carimbo")
+        self.assertEqual(Stamp.objects.count(), 0)
+
+    def test_scan_without_session_for_unknown_stand_is_unavailable(self):
+        url = reverse("scan_stamp", args=[self.a.pk + 100, station_code(self.a)])
+        self.assertEqual(self.client.get(url).status_code, 404)
+        self.assertNotIn("pending_scan", self.client.session)
+
+    def test_expired_scan_code_asks_to_read_qr_again(self):
+        p = self.make_passport()
+        self.in_session(self.client, p)
+        old = station_code(self.a, timezone.now() - timedelta(seconds=180))
+        url = reverse("scan_stamp", args=[self.a.pk, old])
+        response = self.client.get(url)
+        self.assertContains(response, "Ler o QR novamente")
+        self.assertNotContains(response, "Confirmar carimbo")
+        self.assertRedirects(self.client.post(url), reverse("manual_stamp") + "#leitor", fetch_redirect_response=False)
+        self.assertEqual(Stamp.objects.count(), 0)
+
+    def test_passport_shows_when_next_stamp_is_allowed(self):
+        p = self.make_passport()
+        self.in_session(self.client, p)
+        self.assertNotContains(self.client.get(reverse("passport")), "próximo carimbo fica disponível")
+        now = timezone.now().replace(second=20, microsecond=0)
+        self.assertEqual(record_stamp(p.pk, 1, self.a.pk, station_code(self.a, now), now)[0], "ok")
+        p.refresh_from_db()
+        # 20 s após o minuto + 300 s: exibir o minuto seguinte, nunca um horário ainda bloqueado.
+        shown = timezone.localtime(now + timedelta(seconds=340)).strftime("%H:%M")
+        self.assertEqual(timezone.localtime(next_stamp_at(p, now)).strftime("%H:%M"), shown)
+        self.assertIsNone(next_stamp_at(p, now + timedelta(seconds=300)))
+        Passport.objects.filter(pk=p.pk).update(last_stamp_at=timezone.now() - timedelta(seconds=10))
+        response = self.client.get(reverse("passport"))
+        self.assertContains(response, "próximo carimbo fica disponível")
+        self.assertContains(self.client.get(reverse("manual_stamp")), "próximo carimbo fica disponível")
+        Passport.objects.filter(pk=p.pk).update(last_stamp_at=timezone.now() - timedelta(seconds=301))
+        self.assertNotContains(self.client.get(reverse("passport")), "próximo carimbo fica disponível")
+
+    def test_interval_text_follows_event_configuration(self):
+        p = self.make_passport()
+        self.in_session(self.client, p)
+        self.assertContains(self.client.get(reverse("home")), "aguarde 5 minutos entre registros")
+        self.assertContains(self.client.get(reverse("passport")), "Aguarde 5 minutos entre carimbos")
+        Event.objects.filter(pk=self.event.pk).update(gap_seconds=90)
+        self.assertContains(self.client.get(reverse("passport")), "Aguarde 1 minuto e 30 s entre carimbos")
+        Event.objects.filter(pk=self.event.pk).update(gap_seconds=0)
+        self.assertNotContains(self.client.get(reverse("passport")), "entre carimbos")
+        self.assertContains(self.client.get(reverse("home")), "Acompanhe seu progresso.")
+
+    def test_passport_counter_keeps_space_when_line_break_is_hidden(self):
+        p = self.make_passport()
+        self.in_session(self.client, p)
+        self.assertContains(self.client.get(reverse("passport")), "carimbos <br>registrados")
 
     def test_register_visit_offers_camera_and_manual_fallback(self):
         p = self.make_passport()

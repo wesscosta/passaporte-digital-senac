@@ -4,7 +4,7 @@
 {% block content %}
 <a class="back" href="{% url 'passport' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao passaporte</a>
 <header class="page-heading narrow-heading">
-  <div><p class="eyebrow">Mais uma descoberta</p><h1>Registrar visita</h1><p>Use o QR code ou digite o código exibido no estande.</p></div>
+  <div><p class="eyebrow">Mais uma descoberta</p><h1>Registrar visita</h1><p>Use o QR code ou digite o código exibido no estande.</p>{% include "passport/_next_stamp.html" %}</div>
 </header>
 <div class="visit-layout">
   <section id="leitor" class="visit-option scanner-card" data-qr-scanner data-decoder-url="{% static 'passport/vendor/jsQR.min.js' %}" aria-labelledby="scanner-title">

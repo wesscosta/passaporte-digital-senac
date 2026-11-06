@@ -131,6 +131,11 @@ p{max-width:68ch}
 .camera-frame{position:absolute;inset:16%;border:3px solid #f9cb62;border-radius:18px;pointer-events:none}
 .camera-stage[hidden],[hidden]{display:none!important}
 .manual-card form{margin-top:20px}
+.next-stamp,.pending-visit{margin:14px 0 0;padding:11px 14px;background:#fff4d4;border-left:4px solid #9c6813;border-radius:5px;color:var(--ink);font-size:.95rem}
+.pending-visit{margin:0 0 18px;background:#edf4f8;border-color:#407699}
+.form-card .next-stamp{margin-bottom:18px}
+.scan-entry .sector-icon{margin-bottom:8px}
+.scan-entry .actions{margin:0 0 18px}
 .manual-card form .button{width:100%;margin-top:6px}
 .form-card{box-shadow:var(--shadow)}
 .form-field{margin:0 0 18px}

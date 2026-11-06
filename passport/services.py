@@ -58,6 +58,13 @@ def eligible(passport):
     return passport.stamps.filter(stand_id__in=required).count() == len(required)
 
 
+def stamp_ready_at(passport):
+    """Momento em que o intervalo permite outro carimbo; None antes do primeiro."""
+    if not passport.last_stamp_at:
+        return None
+    return passport.last_stamp_at + timedelta(seconds=passport.event.gap_seconds)
+
+
 def record_stamp(passport_id, version, stand_id, code, now=None):
     now = now or timezone.now()
     with transaction.atomic():
@@ -69,8 +76,9 @@ def record_stamp(passport_id, version, stand_id, code, now=None):
             return "invalid", 0
         if Stamp.objects.filter(passport=p, stand=stand).exists():
             return "duplicate", 0
-        if p.last_stamp_at:
-            remaining = (p.last_stamp_at + timedelta(seconds=p.event.gap_seconds) - now).total_seconds()
+        ready_at = stamp_ready_at(p)
+        if ready_at:
+            remaining = (ready_at - now).total_seconds()
             if remaining > 0:
                 return "wait", int(remaining + 0.999)
         Stamp.objects.create(passport=p, stand=stand, created_at=now)

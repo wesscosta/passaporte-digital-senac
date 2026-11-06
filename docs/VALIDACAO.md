@@ -11,6 +11,13 @@ Revisão de 05/11/2026, em cópia isolada com dados fictícios:
 - Leitura de QR com câmera simulada e decodificador local: QR abriu a tela de confirmação sem criar carimbo; o envio confirmou o registro. Permissão negada apresentou orientação e manteve a digitação manual.
 - O teste de URLs do leitor rejeitou origens e caminhos externos à aplicação. A câmera real e navegadores móveis ainda não foram testados.
 
+Revisão de 05/11/2026 (entrada pelo QR e horário do próximo carimbo), com dados fictícios em banco PostgreSQL temporário, já removido:
+
+- 25 testes automatizados passaram no PostgreSQL, inclusive a concorrência entre dois carimbos. Novos testes: QR lido sem sessão oferece cadastro e retoma a visita; estande inexistente responde 404 sem guardar visita pendente; código de QR expirado pede nova leitura sem criar carimbo; o horário exibido nunca antecede o fim do intervalo.
+- O intervalo continua decidido em record_stamp, sob bloqueio no PostgreSQL. A tela apenas exibe o horário a partir do último carimbo, arredondado para o minuto seguinte.
+- Os textos de intervalo do início e do passaporte passaram a usar o gap_seconds do evento (testados com 300, 90 e 0 segundos); o contador do passaporte voltou a exibir "carimbos registrados" com espaço em 360 pixels. Suíte com 27 testes aprovada no PostgreSQL.
+- Brave headless com viewport emulado de 320 pixels: entrada pelo QR, cadastro com visita pendente, passaporte, confirmação com espera e código expirado sem rolagem horizontal. Não testado em Android ou iOS reais nem com leitor de tela.
+
 Resultados da versão inicial, preservados para histórico:
 
 - Django check sem erros.

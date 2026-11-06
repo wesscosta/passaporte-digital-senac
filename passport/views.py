@@ -1,6 +1,7 @@
 import base64
 import io
 import re
+from datetime import timedelta
 from functools import wraps
 import qrcode
 import qrcode.image.svg
@@ -17,7 +18,7 @@ from .forms import ManualStampForm, RecoveryForm, RegistrationForm, TicketLookup
 from .models import Event, Passport, Redemption, Stand
 from .services import (
     CONSENT_VERSION, digest, eligible, find_ticket, issue_ticket, limit,
-    record_stamp, redeem, station_code, verify_pin,
+    record_stamp, redeem, stamp_ready_at, station_code, valid_station_code, verify_pin,
 )
 
 
@@ -59,6 +60,34 @@ def sign_in_participant(request, p):
     return redirect("passport")
 
 
+def pending_stand(request, event):
+    pending = request.session.get("pending_scan")
+    if not (isinstance(pending, list) and len(pending) == 2):
+        return None
+    return Stand.objects.filter(pk=pending[0], event=event, active=True).first()
+
+
+def next_stamp_at(p, now=None):
+    ready = stamp_ready_at(p)
+    if not ready or ready <= (now or timezone.now()):
+        return None
+    # Arredonda para o minuto seguinte: exibir 14:32 para 14:32:40 levaria a uma tentativa recusada.
+    if ready.second or ready.microsecond:
+        ready = ready.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    return ready
+
+
+def interval_label(seconds):
+    """Descreve o intervalo configurado do evento; None quando não há intervalo."""
+    if not seconds:
+        return None
+    minutes, secs = divmod(seconds, 60)
+    if not minutes:
+        return "1 segundo" if secs == 1 else f"{secs} segundos"
+    label = "1 minuto" if minutes == 1 else f"{minutes} minutos"
+    return f"{label} e {secs} s" if secs else label
+
+
 def client_address(request):
     # Apenas REMOTE_ADDR; encaminhamento de proxy requer configuração confiável.
     return request.META.get("REMOTE_ADDR", "unknown")
@@ -74,7 +103,10 @@ def contact_digests(contact):
 
 @never_cache
 def home(request):
-    return render(request, "passport/home.html", {"event": current_event(), "p": participant(request)})
+    event = current_event()
+    return render(request, "passport/home.html", {
+        "event": event, "p": participant(request), "gap": interval_label(event.gap_seconds) if event else None,
+    })
 
 
 @never_cache
@@ -107,7 +139,7 @@ def register(request):
                     return sign_in_participant(request, p)
                 except IntegrityError:
                     form.add_error(None, "Não foi possível cadastrar. Confira os dados ou tente recuperar o acesso.")
-    return render(request, "passport/register.html", {"form": form, "event": event})
+    return render(request, "passport/register.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
 
 
 @never_cache
@@ -137,7 +169,7 @@ def recover(request):
                         p.save(update_fields=["session_version"])
                         return sign_in_participant(request, p)
         form.add_error(None, "Não foi possível recuperar o acesso. Confira os dados ou aguarde e tente novamente.")
-    return render(request, "passport/recover.html", {"form": form, "event": event})
+    return render(request, "passport/recover.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
 
 
 @never_cache
@@ -163,13 +195,15 @@ def passport_page(request, p):
     return render(request, "passport/passport.html", {
         "p": p, "rows": rows, "done": done, "total": len(stands),
         "eligible": eligible(p), "redeemed": redeemed, "ticket_code": code, "ticket_qr": qr,
+        "next_stamp_at": next_stamp_at(p) if done < len(stands) else None,
+        "gap": interval_label(p.event.gap_seconds),
     })
 
 
 def report_stamp(request, p, stand_id, code):
     if not limit("stamp.passport", str(p.pk), 30):
         messages.error(request, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
-        return
+        return "limited"
     result, seconds = record_stamp(p.pk, request.session.get("passport_version"), stand_id, code)
     if result == "ok":
         messages.success(request, "Carimbo registrado com sucesso.")
@@ -182,6 +216,7 @@ def report_stamp(request, p, stand_id, code):
         messages.error(request, "Sua sessão foi substituída. Recupere o acesso novamente.")
     else:
         messages.error(request, "Código inválido ou expirado. Peça o código atualizado no estande.")
+    return result
 
 
 @never_cache
@@ -191,7 +226,7 @@ def manual_stamp(request, p):
     if request.method == "POST" and form.is_valid():
         report_stamp(request, p, form.cleaned_data["stand"].pk, form.cleaned_data["code"])
         return redirect("passport")
-    return render(request, "passport/manual_stamp.html", {"form": form})
+    return render(request, "passport/manual_stamp.html", {"form": form, "next_stamp_at": next_stamp_at(p)})
 
 
 @never_cache
@@ -200,13 +235,21 @@ def scan_stamp(request, stand_id, code):
         return render(request, "passport/unavailable.html", status=404)
     p = participant(request)
     if not p:
-        request.session["pending_scan"] = [stand_id, code]
-        return redirect("recover")
+        # Primeiro contato costuma ser o QR do estande: oferecer cadastro, não só recuperação.
+        event = current_event()
+        stand = Stand.objects.filter(pk=stand_id, event=event, active=True).first() if event else None
+        if not stand:
+            return render(request, "passport/unavailable.html", status=404)
+        request.session["pending_scan"] = [stand.pk, code]
+        return render(request, "passport/scan_entry.html", {"stand": stand})
     stand = get_object_or_404(Stand, pk=stand_id, event=p.event, active=True)
     if request.method == "POST":
-        report_stamp(request, p, stand.pk, code)
+        if report_stamp(request, p, stand.pk, code) == "invalid":
+            return redirect(reverse("manual_stamp") + "#leitor")
         return redirect("passport")
-    return render(request, "passport/scan_confirm.html", {"stand": stand})
+    return render(request, "passport/scan_confirm.html", {
+        "stand": stand, "expired": not valid_station_code(stand, code), "next_stamp_at": next_stamp_at(p),
+    })
 
 
 @never_cache

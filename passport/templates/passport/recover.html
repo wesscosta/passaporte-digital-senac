@@ -5,6 +5,7 @@
 <div class="form-card">
   <p class="eyebrow">Seu passaporte continua aqui</p><h1>Recupere seu acesso</h1>
   <p>Use o contato e o PIN escolhidos no cadastro. Ao entrar, a sessão anterior do participante será substituída.</p>
+  {% if pending_stand %}<p class="pending-visit">Ao entrar, você confirma a visita a <strong>{{ pending_stand.name }}</strong>.</p>{% endif %}
   <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button form-submit" type="submit">Entrar no passaporte {% include "passport/_icon.html" with icon="forward" only %}</button></form>
   <p class="form-footer">Ainda não se cadastrou? <a href="{% url 'register' %}">Criar passaporte</a></p>
   <p>Esqueceu o PIN? Procure a equipe de organização. O procedimento de recuperação assistida ainda precisa ser definido.</p>

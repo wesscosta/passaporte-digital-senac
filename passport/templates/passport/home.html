@@ -30,7 +30,7 @@
   <div class="steps">
     <article><span class="number">01</span><h3>Crie seu acesso</h3><p>Informe nome, contato e um PIN para recuperar seu passaporte.</p></article>
     <article><span class="number">02</span><h3>Visite os estandes</h3><p>Escaneie o QR code ou digite o código exibido em cada espaço.</p></article>
-    <article><span class="number">03</span><h3>Colecione carimbos</h3><p>Acompanhe seu progresso e aguarde cinco minutos entre registros.</p></article>
+    <article><span class="number">03</span><h3>Colecione carimbos</h3><p>Acompanhe seu progresso{% if gap %} e aguarde {{ gap }} entre registros{% endif %}.</p></article>
   </div>
 </section>
 {% endblock %}

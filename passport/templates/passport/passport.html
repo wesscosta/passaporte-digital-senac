@@ -7,18 +7,18 @@
     <h1 id="passport-title">Olá, <em>{{ p.name }}!</em></h1>
     <p>Cada visita é uma nova descoberta. Acompanhe sua jornada pelo Circuito Senac.</p>
   </div>
-  <div class="passport-count"><strong>{{ done }}<span>/{{ total }}</span></strong><span>carimbos<br>registrados</span></div>
+  <div class="passport-count"><strong>{{ done }}<span>/{{ total }}</span></strong><span>carimbos <br>registrados</span></div>
   {% if total %}<div class="progress" role="progressbar" aria-label="Carimbos registrados" aria-valuenow="{{ done }}" aria-valuemin="0" aria-valuemax="{{ total }}"><div style="width:{% widthratio done total 100 %}%"></div></div>{% endif %}
 </section>
 <section class="action-panel" aria-labelledby="next-step">
-  <div><p class="eyebrow">Está em um estande?</p><h2 id="next-step">Registre sua visita</h2><p>Leia o QR code ou informe o código da tela do estande.</p></div>
+  <div><p class="eyebrow">Está em um estande?</p><h2 id="next-step">Registre sua visita</h2><p>Leia o QR code ou informe o código da tela do estande.</p>{% include "passport/_next_stamp.html" %}</div>
   <div class="actions">
     <a class="button" href="{% url 'manual_stamp' %}#leitor">Escanear QR code {% include "passport/_icon.html" with icon="external" only %}</a>
     <a class="button secondary" href="{% url 'manual_stamp' %}#codigo">Digitar código</a>
   </div>
 </section>
 <section aria-labelledby="areas">
-  <div class="section-heading compact"><div><p class="eyebrow">Descubra cada espaço</p><h2 id="areas">Seu circuito</h2></div><p>Aguarde cinco minutos entre carimbos registrados.</p></div>
+  <div class="section-heading compact"><div><p class="eyebrow">Descubra cada espaço</p><h2 id="areas">Seu circuito</h2></div>{% if gap %}<p>Aguarde {{ gap }} entre carimbos registrados.</p>{% endif %}</div>
   <div class="stand-grid">
     {% for row in rows %}
     <article class="stand {% if row.visited %}visited{% endif %}">
