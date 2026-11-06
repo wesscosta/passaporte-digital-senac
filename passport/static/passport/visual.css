@@ -211,3 +211,81 @@ input:not([type=checkbox]):focus-visible,select:focus-visible{border-color:var(-
   *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }
 
+
+/* Identificador do passaporte */
+.passport-number{margin:0 0 10px!important;font-size:.92rem}
+.passport-number strong{color:#ffdc89;letter-spacing:.08em;font-size:1.05rem;white-space:nowrap}
+.sector-default{background:#4e6171}
+
+/* Insígnias: selo redondo com raios, inspirado nos selos de área do material do Circuito Senac */
+.badge-grid{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:14px}
+.badge{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;padding:18px 12px 16px;background:#fff;border:1px solid #dce2e2;border-radius:16px;box-shadow:var(--shadow)}
+.badge.is-pending{background:transparent;border:1px dashed #8d9ca8;box-shadow:none}
+.badge-seal{width:min(112px,100%);height:auto;overflow:visible}
+.badge-copy{min-width:0}
+.badge h3{font-size:1rem;margin:0 0 4px;overflow-wrap:anywhere}
+.badge-state{margin:0;font-size:.82rem;color:var(--muted);text-wrap:balance}
+.badge.is-earned .badge-state{color:#14623b;font-weight:700}
+.badge-state .ui-icon{width:15px;height:15px;vertical-align:-3px;margin-right:2px}
+.seal-disc,.seal-core{fill:var(--seal,#4e6171)}
+.seal-rays{fill:none;stroke:var(--rays,rgba(255,255,255,.18));stroke-width:13;stroke-dasharray:2.3 2.7}
+.seal-rays-2{stroke-width:5;stroke-dasharray:1.1 3.9;stroke-dashoffset:1.4;opacity:.8}
+.seal-glyph{fill:none;stroke:var(--glyph,#fff8e9);stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round}
+.seal-check circle{fill:#14623b;stroke:#fff;stroke-width:3}
+.seal-check path{fill:none;stroke:#fff;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}
+.badge-tech{--seal:#203b58}
+.badge-arts{--seal:#07579a}
+.badge-food,.badge-fashion{--seal:#d44d1d;--rays:rgba(255,255,255,.22)}
+.badge-commerce{--seal:#f7ca61;--glyph:#19354f;--rays:rgba(255,255,255,.45)}
+.badge-health{--seal:#fff4d8;--glyph:#19354f;--rays:rgba(247,202,97,.6)}
+.badge-default{--seal:#4e6171}
+.badge-health.is-earned .seal-disc{stroke:#c9a440;stroke-width:2}
+/* A conquistar: selo em papel, contorno tracejado, sem cor da área; o texto também informa o estado. */
+.badge.is-pending .badge-seal{--seal:#fffdf7;--rays:rgba(30,53,83,.07);--glyph:#6b7c89}
+.seal-outline{fill:none;stroke:#75858f;stroke-width:2;stroke-dasharray:4 5}
+.badge.just-stamped{border:2px solid #237249;box-shadow:0 0 0 4px #cfeedd}
+.badge.just-stamped .badge-seal{animation:stamp-in .5s cubic-bezier(.2,1.4,.4,1) both}
+
+/* Área da equipe: pesquisa, detalhe e gestão */
+.staff-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:30px 0}
+.tool-card{display:flex;flex-direction:column;gap:10px;padding:22px;background:#fff;border:1px solid var(--line);border-radius:15px;box-shadow:var(--shadow)}
+.tool-card h2{font-size:1.35rem;margin:0}
+.tool-card p{margin:0;color:var(--muted)}
+.tool-card .button{align-self:flex-start;margin-top:auto}
+.search-form{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:0 0 8px}
+.search-form p{flex:1 1 240px;margin:0}
+.search-hint{color:var(--muted);font-size:.88rem;margin:0 0 24px}
+.result-meta{color:var(--muted);font-size:.9rem;margin:18px 0 10px}
+.data-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:.94rem}
+.data-table th,.data-table td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+.data-table th{background:#f3f6f7;color:var(--navy-deep);font-size:.82rem}
+.data-table tr:last-child td{border-bottom:0}
+.id-code{font-weight:700;letter-spacing:.06em;white-space:nowrap}
+.status-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font-size:.8rem;font-weight:700;white-space:nowrap;border:1px solid transparent}
+.status-pill:before{content:"";flex:none;width:8px;height:8px;border-radius:50%;background:currentColor}
+.status-pending{background:#f3f6f7;color:#41525f;border-color:#cdd6dc}
+.status-eligible{background:#fff4d4;color:#7a4d0b;border-color:#e9c97a}
+.status-redeemed{background:#e7f5ec;color:#14623b;border-color:#a7d6b5}
+.pagination{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:16px}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:0 0 28px}
+.detail-grid div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.detail-grid dt{font-size:.8rem;color:var(--muted);font-weight:700}
+.detail-grid dd{margin:4px 0 0;font-weight:700;color:var(--navy-deep);overflow-wrap:anywhere}
+.manager-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:20px;align-items:start}
+.manager-grid .form-card{margin:0;max-width:none}
+.manager-stands{margin-top:40px}
+.data-table td>.status-pill{justify-self:start}
+.current-value{font:700 2rem/1.1 Georgia,serif;color:var(--navy-deep);margin:4px 0 14px}
+.plain-list{margin:0;padding-left:1.2rem}
+.plain-list li{margin:6px 0}
+@media(max-width:700px){
+  .manager-grid{grid-template-columns:1fr}
+  .data-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .data-table,.data-table tbody,.data-table tr,.data-table td{display:block;width:100%}
+  .data-table tr{padding:10px 4px;border-bottom:1px solid var(--line)}
+  .data-table tr:last-child{border-bottom:0}
+  .data-table td{border:0;padding:5px 12px;display:grid;grid-template-columns:minmax(92px,auto) minmax(0,1fr);gap:10px}
+  .data-table td:before{content:attr(data-label);font-size:.78rem;font-weight:700;color:var(--muted)}
+}
+.visually-hidden{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.field-help{display:block;color:var(--muted);font-size:.86rem;margin:-2px 0 8px}

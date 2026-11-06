@@ -1,16 +1,1 @@
-{% if stand.name == "Tecnologia da Informação" %}
-<span class="sector-icon sector-tech" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="m9 8-2.5 2.5L9 13m6-5 2.5 2.5L15 13M9 21h6m-3-4v4"/></svg></span>
-{% elif stand.name == "Artes e Design" %}
-<span class="sector-icon sector-arts" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 0 0 0 18h1.5a2 2 0 0 0 1.3-3.5 1.6 1.6 0 0 1 1.1-2.8H18a3 3 0 0 0 3-3A8.6 8.6 0 0 0 12 3Z"/><circle cx="7.7" cy="11" r=".8"/><circle cx="10" cy="7.5" r=".8"/><circle cx="14" cy="7.2" r=".8"/><circle cx="17" cy="10" r=".8"/></svg></span>
-{% elif stand.name == "Gastronomia e Turismo" %}
-<span class="sector-icon sector-food" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 13a4 4 0 0 1 .2-7.5A5.8 5.8 0 0 1 17.8 6 3.5 3.5 0 0 1 18 13v5H6v-5Zm0 5h12v2H6zM9 13v5m6-5v5"/></svg></span>
-{% elif stand.name == "Moda e Beleza" %}
-<span class="sector-icon sector-fashion" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9.5 6A2.5 2.5 0 0 1 14.5 6c0 1.4-1.2 1.9-2.5 2.6V11L3.7 17a1.6 1.6 0 0 0 1 2.8h14.6a1.6 1.6 0 0 0 1-2.8L12 11"/></svg></span>
-{% elif stand.name == "Gestão e Comércio" %}
-<span class="sector-icon sector-commerce" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M3 12h18m-10-1v3h2v-3"/></svg></span>
-{% elif stand.name == "Saúde" %}
-<span class="sector-icon sector-health" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20.5 8.5c0 5-8.5 11-8.5 11s-8.5-6-8.5-11A4.5 4.5 0 0 1 12 6a4.5 4.5 0 0 1 8.5 2.5Z"/><path d="M12 8v6m-3-3h6"/></svg></span>
-{% else %}
-<span class="sector-icon sector-default" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10V5a1 1 0 0 1 1-1h5m4 0h5a1 1 0 0 1 1 1v5M4 14v5a1 1 0 0 0 1 1h5m4 0h5a1 1 0 0 0 1-1v-5M8 12h8"/></svg></span>
-{% endif %}
-
+<span class="sector-icon sector-{{ stand.area_key|default:'default' }}" aria-hidden="true"><svg viewBox="0 0 24 24">{% include "passport/_area_glyph.html" with area=stand.area_key only %}</svg></span>

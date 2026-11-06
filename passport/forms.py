@@ -78,3 +78,16 @@ class TicketLookupForm(forms.Form):
 
     def clean_code(self):
         return self.cleaned_data["code"].upper()
+
+
+class PassportSearchForm(forms.Form):
+    q = forms.CharField(label="Nome, celular ou identificador", min_length=3, max_length=80, required=False,
+                        widget=forms.TextInput(attrs={"type": "search", "autocomplete": "off", "enterkeyhint": "search"}),
+                        error_messages={"min_length": "Digite pelo menos 3 caracteres."})
+
+
+class IntervalForm(forms.Form):
+    minutes = forms.IntegerField(label="Novo intervalo, em minutos", min_value=1, max_value=60,
+                                 widget=forms.NumberInput(attrs={"inputmode": "numeric", "step": "1", "aria-describedby": "minutes-help"}),
+                                 error_messages={"min_value": "Use pelo menos 1 minuto.", "max_value": "Use no máximo 60 minutos.",
+                                                 "invalid": "Informe um número inteiro de minutos.", "required": "Informe o intervalo em minutos."})

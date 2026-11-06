@@ -1,0 +1,39 @@
+{% extends "passport/base.html" %}
+{% block title %}Consultar passaportes{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Painel da equipe</a>
+<header class="page-heading"><div><p class="eyebrow">Área da equipe</p><h1>Consultar passaportes</h1><p>Use para orientar o visitante. A consulta não registra carimbos nem entregas.</p></div></header>
+<form method="get" class="search-form" role="search" novalidate>
+  {% if form.non_field_errors %}{{ form.non_field_errors }}{% endif %}
+  <p>{{ form.q.label_tag }}{{ form.q }}{{ form.q.errors }}</p>
+  <button class="button" type="submit">Pesquisar</button>
+</form>
+<p class="search-hint">Celular e identificador precisam estar completos, por exemplo (86) 99999-9999 ou ABCD-2345. Nome aceita um trecho com pelo menos 3 letras.</p>
+{% if searched %}
+  <p class="result-meta" role="status">{% if page.paginator.count %}{{ page.paginator.count }} passaporte{{ page.paginator.count|pluralize }} encontrado{{ page.paginator.count|pluralize }}{% if page.paginator.num_pages > 1 %}, página {{ page.number }} de {{ page.paginator.num_pages }}{% endif %}.{% else %}Nenhum passaporte encontrado. Confira a grafia ou peça o identificador mostrado no passaporte do visitante.{% endif %}</p>
+  {% if results %}
+  <table class="data-table">
+    <caption class="visually-hidden">Resultados da pesquisa</caption>
+    <thead><tr><th scope="col">Nome</th><th scope="col">Celular</th><th scope="col">Identificador</th><th scope="col">Insígnias</th><th scope="col">Premiação</th><th scope="col"><span class="visually-hidden">Ações</span></th></tr></thead>
+    <tbody>
+    {% for r in results %}
+      <tr>
+        <td data-label="Nome">{{ r.p.name }}</td>
+        <td data-label="Celular">{{ r.contact }}</td>
+        <td data-label="Identificador"><span class="id-code">{{ r.p.display_id }}</span></td>
+        <td data-label="Insígnias">{{ r.p.stamps_done }} de {{ total }}</td>
+        <td data-label="Premiação">{% include "passport/_prize_status.html" with status=r.status only %}</td>
+        <td data-label="Ação"><a href="{% url 'passport_detail' r.p.display_id %}">Ver detalhes<span class="visually-hidden"> de {{ r.p.name }}</span></a></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if page.paginator.num_pages > 1 %}
+  <nav class="pagination" aria-label="Páginas de resultados">
+    {% if page.has_previous %}<a class="button secondary" href="?q={{ form.cleaned_data.q|urlencode }}&amp;pagina={{ page.previous_page_number }}">Página anterior</a>{% else %}<span></span>{% endif %}
+    {% if page.has_next %}<a class="button secondary" href="?q={{ form.cleaned_data.q|urlencode }}&amp;pagina={{ page.next_page_number }}">Próxima página</a>{% endif %}
+  </nav>
+  {% endif %}
+  {% endif %}
+{% endif %}
+{% endblock %}

@@ -1,14 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
 from threading import Barrier
-from unittest import skipUnless
+from unittest import mock, skipUnless
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import Group, User
 from django.db import close_old_connections, connection
 from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from passport.models import Event, Passport, Redemption, Stand, Stamp
+from passport.models import Event, Passport, RateBucket, Redemption, Stand, Stamp
 from passport.services import (
     CONSENT_VERSION, digest, eligible, find_ticket, issue_ticket, record_stamp,
     redeem, station_code, valid_station_code,
@@ -224,7 +224,7 @@ class PassportTests(TestCase):
     def test_passport_counter_keeps_space_when_line_break_is_hidden(self):
         p = self.make_passport()
         self.in_session(self.client, p)
-        self.assertContains(self.client.get(reverse("passport")), "carimbos <br>registrados")
+        self.assertContains(self.client.get(reverse("passport")), "insígnias <br>conquistadas")
 
     def test_stamp_feedback_names_stand_and_highlights_it_once(self):
         p = self.make_passport()
@@ -235,7 +235,7 @@ class PassportTests(TestCase):
         shown = timezone.localtime(stamp.created_at).strftime("%H:%M")
         self.assertContains(response, f"Área A carimbado às {shown}.")
         self.assertContains(response, "just-stamped", count=1)
-        self.assertContains(response, f"Carimbado às <time datetime=")
+        self.assertContains(response, f"Conquistada às <time datetime=")
         self.assertNotContains(self.client.get(reverse("passport")), "just-stamped")
 
     def test_reward_moves_to_top_only_while_it_can_be_claimed(self):
@@ -271,6 +271,103 @@ class PassportTests(TestCase):
         self.assertContains(response, "Digitar código")
         self.assertContains(response, "data-qr-scanner")
         self.assertContains(response, "passport/scanner.js")
+
+    def staff_login(self, username, password, url_name="staff_login", **extra):
+        return self.client.post(reverse(url_name), {"username": username, "password": password}, **extra)
+
+    def test_staff_login_blocks_account_after_failures_without_checking_password(self):
+        User.objects.create_user("equipe", password="secret", is_staff=True)
+        for _ in range(5):
+            self.assertContains(self.staff_login("equipe", "errada"), "Por favor, entre com um usuário")
+        with mock.patch("django.contrib.auth.forms.authenticate") as authenticate:
+            response = self.staff_login("Equipe ", "secret")
+        authenticate.assert_not_called()
+        self.assertContains(response, "Muitas tentativas de acesso")
+        self.assertNotIn("_auth_user_id", self.client.session)
+        User.objects.create_user("outra", password="secret", is_staff=True)
+        self.assertRedirects(self.staff_login("outra", "secret"), reverse("staff_home"), fetch_redirect_response=False)
+
+    def test_staff_login_unknown_account_gets_same_block(self):
+        for _ in range(5):
+            self.staff_login("inexistente", "errada")
+        self.assertContains(self.staff_login("inexistente", "errada"), "Muitas tentativas de acesso")
+
+    def test_staff_login_success_clears_account_failures(self):
+        User.objects.create_user("equipe", password="secret", is_staff=True)
+        for _ in range(4):
+            self.staff_login("equipe", "errada")
+        self.assertEqual(self.staff_login("equipe", "secret").status_code, 302)
+        self.client.logout()
+        for _ in range(4):
+            self.staff_login("equipe", "errada")
+        self.assertEqual(self.staff_login("equipe", "secret").status_code, 302)
+
+    def test_staff_login_block_expires_after_window(self):
+        User.objects.create_user("equipe", password="secret", is_staff=True)
+        for _ in range(5):
+            self.staff_login("equipe", "errada")
+        RateBucket.objects.update(window_start=timezone.now() - timedelta(seconds=901))
+        self.assertEqual(self.staff_login("equipe", "secret").status_code, 302)
+
+    def test_staff_login_address_limit_covers_many_accounts(self):
+        User.objects.create_user("equipe", password="secret", is_staff=True)
+        with mock.patch("passport.auth.MAX_PER_ADDRESS", 3):
+            for name in ("a", "b", "c"):
+                self.staff_login(name, "errada", REMOTE_ADDR="10.0.0.1")
+            self.assertContains(self.staff_login("equipe", "secret", REMOTE_ADDR="10.0.0.1"), "Muitas tentativas de acesso")
+            response = self.staff_login("equipe", "secret", REMOTE_ADDR="10.0.0.2")
+        self.assertEqual(response.status_code, 302)
+
+    def test_admin_login_shares_staff_account_limit(self):
+        User.objects.create_superuser("admin", password="secret")
+        for _ in range(3):
+            self.staff_login("admin", "errada")
+        for _ in range(2):
+            self.staff_login("admin", "errada", url_name="admin:login")
+        response = self.staff_login("admin", "secret", url_name="admin:login")
+        self.assertContains(response, "Muitas tentativas de acesso")
+        self.assertNotIn("_auth_user_id", self.client.session)
+
+    def test_staff_login_block_is_logged_once_without_personal_data(self):
+        User.objects.create_user("equipe.secreta", password="secret", is_staff=True)
+        for _ in range(5):
+            self.staff_login("equipe.secreta", "errada", REMOTE_ADDR="10.9.8.7")
+        with self.assertLogs("passport.security", "WARNING") as logs:
+            for _ in range(3):
+                self.staff_login("equipe.secreta", "secret", REMOTE_ADDR="10.9.8.7")
+        self.assertEqual(len(logs.output), 1)
+        self.assertIn("tipo=staff_login.account", logs.output[0])
+        for secret in ("equipe.secreta", "10.9.8.7", "secret"):
+            self.assertNotIn(secret, logs.output[0].replace("passport.security", ""))
+
+    def test_admin_action_unlocks_staff_account_and_records_who(self):
+        from django.contrib.admin.models import LogEntry
+        staff = User.objects.create_user("equipe", password="secret", is_staff=True)
+        for _ in range(5):
+            self.staff_login("equipe", "errada")
+        manager = User.objects.create_superuser("gestor", password="secret")
+        admin_client = Client()
+        admin_client.force_login(manager)
+        changelist = reverse("admin:auth_user_changelist")
+        self.assertContains(admin_client.get(changelist), "Acesso bloqueado até")
+        with self.assertLogs("passport.security", "INFO") as logs:
+            admin_client.post(changelist, {"action": "unlock_staff_login", "_selected_action": [staff.pk]})
+        self.assertIn(f"usuario_id={staff.pk} por_id={manager.pk}", logs.output[0])
+        entry = LogEntry.objects.get(object_id=str(staff.pk))
+        self.assertEqual(entry.user, manager)
+        self.assertEqual(self.staff_login("equipe", "secret").status_code, 302)
+
+    def test_unlock_action_requires_change_permission(self):
+        staff = User.objects.create_user("equipe", password="secret", is_staff=True)
+        for _ in range(5):
+            self.staff_login("equipe", "errada")
+        viewer = User.objects.create_user("leitor", password="secret", is_staff=True)
+        from django.contrib.auth.models import Permission
+        viewer.user_permissions.add(Permission.objects.get(codename="view_user"))
+        other = Client()
+        other.force_login(viewer)
+        other.post(reverse("admin:auth_user_changelist"), {"action": "unlock_staff_login", "_selected_action": [staff.pk]})
+        self.assertContains(self.staff_login("equipe", "secret"), "Muitas tentativas de acesso")
 
     def test_unassigned_staff_cannot_access_station(self):
         user = User.objects.create_user("staff", password="secret", is_staff=True)
@@ -367,3 +464,29 @@ class ConcurrentStampTests(TransactionTestCase):
             results = list(pool.map(attempt, (a, b)))
         self.assertCountEqual(results, ["ok", "wait"])
         self.assertEqual(Stamp.objects.count(), 1)
+
+
+@override_settings(PASSWORD_HASHERS=FAST_HASHERS)
+class ConcurrentStaffLoginTests(TransactionTestCase):
+    def test_simultaneous_wrong_passwords_respect_account_limit(self):
+        from passport.auth import MAX_PER_ACCOUNT, StaffAuthenticationForm
+        from django.test import RequestFactory
+        User.objects.create_user("equipe", password="secret", is_staff=True)
+        workers = MAX_PER_ACCOUNT * 2
+        barrier = Barrier(workers)
+
+        def attempt(_):
+            close_old_connections()
+            try:
+                request = RequestFactory().post("/equipe/entrar/")
+                form = StaffAuthenticationForm(request, data={"username": "equipe", "password": "errada"})
+                barrier.wait(timeout=5)
+                form.is_valid()
+                return form.errors.as_data()["__all__"][0].code
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            codes = list(pool.map(attempt, range(workers)))
+        self.assertEqual(codes.count("invalid_login"), MAX_PER_ACCOUNT)
+        self.assertEqual(codes.count("rate_limited"), workers - MAX_PER_ACCOUNT)

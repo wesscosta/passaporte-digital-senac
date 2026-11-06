@@ -58,6 +58,15 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "staff_login"
 LOGIN_REDIRECT_URL = "staff_home"
 LOGOUT_REDIRECT_URL = "home"
+# Eventos de segurança (bloqueios e desbloqueios) vão para a saída do processo; nunca contêm PIN,
+# senha, nome de usuário, contato ou endereço de rede. Destino e retenção em produção ainda a definir.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"security": {"format": "{asctime} {levelname} {name} {message}", "style": "{"}},
+    "handlers": {"security": {"class": "logging.StreamHandler", "formatter": "security"}},
+    "loggers": {"passport.security": {"handlers": ["security"], "level": "INFO", "propagate": False}},
+}
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG

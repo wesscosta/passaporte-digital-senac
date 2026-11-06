@@ -32,6 +32,11 @@ O PostgreSQL local fica em 127.0.0.1:55432, em volume Docker do projeto. As cred
 - Leitura do QR pelo navegador com câmera autorizada; digitação de código e câmera nativa do celular como alternativas. O decodificador local é carregado sob demanda.
 - Carimbo único por estande, com intervalo entre registros e validação transacional no PostgreSQL.
 - Setor de premiação separado: geração de código e QR de retirada, consulta da equipe e confirmação explícita, uma entrega por passaporte.
+- Identificador de passaporte (ex.: ABCD-2345), único no banco, exibido ao visitante e usado no atendimento. Não é senha nem prova de identidade.
+- Insígnias por estande: selo "a conquistar" até o servidor confirmar o carimbo; depois, "conquistada", com horário.
+- Área da equipe em dois níveis: staff (estandes atribuídos e consulta de passaportes) e gestão (intervalo entre carimbos do evento ativo).
+- Pesquisa de passaportes por nome, celular completo ou identificador, paginada, com celular mascarado e registro de auditoria sem o termo pesquisado.
+- Limite de tentativas no login da equipe e do /admin/, com desbloqueio manual no /admin/ e log de bloqueios sem dados pessoais.
 
 Os limites de tentativas estão implementados parcialmente. Leia docs/VALIDACAO.md antes de avaliar qualquer implantação.
 
@@ -41,7 +46,13 @@ O comando seed_demo cria as seis áreas e o grupo Premiação. Não cria senhas 
 
     .venv/bin/python manage.py createsuperuser
 
-Depois, no /admin/, atribua a cada funcionário a propriedade de equipe e os estandes correspondentes. Funcionários da premiação precisam pertencer ao grupo Premiação. Superusuários têm acesso ampliado. Não compartilhe credenciais.
+Depois, no /admin/, atribua a cada funcionário a propriedade de equipe e os estandes correspondentes. Funcionários da premiação precisam pertencer ao grupo Premiação. Não compartilhe credenciais.
+
+Níveis de acesso (todos exigem a propriedade de equipe, is_staff):
+
+- Staff de estande: exibe QR e código dos estandes atribuídos e consulta passaportes.
+- Premiação: grupo Premiação; consulta passaportes e confirma entregas pelo código de retirada.
+- Gestão: permissão "Pode gerenciar o evento ativo e o intervalo entre carimbos" (passport.manage_event). O superusuário a recebe implicitamente. Como is_superuser concede todas as permissões do Django, inclusive no /admin/, é mais seguro criar um grupo de gestão só com essa permissão e conceder superusuário apenas a quem administra o sistema. A permissão de gestão sozinha não libera a premiação. Nenhuma conta é promovida automaticamente.
 
 O cadastro local sintético anterior, ui.smoke@example.invalid, é um registro legado e não foi excluído. Novos cadastros aceitam apenas celular; a recuperação mantém compatibilidade com os contatos anteriores.
 

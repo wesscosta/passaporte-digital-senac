@@ -1,0 +1,21 @@
+{% extends "passport/base.html" %}
+{% block title %}Passaporte {{ p.display_id }}{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'passport_search' %}">{% include "passport/_icon.html" with icon="back" only %} Nova consulta</a>
+<header class="page-heading"><div><p class="eyebrow">Atendimento</p><h1>{{ p.name }}</h1><p>Confira os dados com o visitante antes de orientar. O identificador não comprova identidade.</p></div></header>
+<dl class="detail-grid">
+  <div><dt>Identificador</dt><dd class="id-code">{{ p.display_id }}</dd></div>
+  <div><dt>Celular</dt><dd>{{ contact }}</dd></div>
+  <div><dt>Insígnias</dt><dd>{{ p.stamps_done }} de {{ total }}{% if required_total != total %} ({{ p.required_done }} de {{ required_total }} obrigatórias){% endif %}</dd></div>
+  <div><dt>Premiação</dt><dd>{% include "passport/_prize_status.html" with status=status only %}</dd></div>
+  {% if next_stamp_at %}<div><dt>Próximo carimbo</dt><dd>a partir das <time datetime="{{ next_stamp_at|date:'c' }}">{{ next_stamp_at|time:"H:i" }}</time></dd></div>{% endif %}
+</dl>
+{% if status == "eligible" %}
+<p class="notice">{% if prize_allowed %}Para registrar a entrega, peça ao visitante o código de retirada e use <a href="{% url 'prize_lookup' %}">Setor de premiação</a>. Esta tela não registra entregas.{% else %}O visitante já pode retirar o prêmio no setor de premiação.{% endif %}</p>
+{% endif %}
+<section aria-labelledby="insignias">
+  <div class="section-heading compact"><div><h2 id="insignias">Insígnias</h2></div></div>
+  {% if rows %}<ul class="badge-grid">{% for row in rows %}{% include "passport/_badge.html" %}{% endfor %}</ul>
+  {% else %}<p class="empty-state">Nenhum estande ativo neste evento.</p>{% endif %}
+</section>
+{% endblock %}

@@ -6,7 +6,7 @@ from functools import wraps
 import qrcode
 import qrcode.image.svg
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError, transaction
 from django.http import HttpResponseForbidden, HttpResponseNotAllowed
@@ -14,11 +14,21 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from .forms import ManualStampForm, RecoveryForm, RegistrationForm, TicketLookupForm
+from django.views.decorators.http import require_safe
+from django.core.paginator import Paginator
+from django.db.models import Count, Exists, OuterRef, Q
+from .areas import AREAS, area_key
+from .forms import (
+    IntervalForm, ManualStampForm, PassportSearchForm, RecoveryForm, RegistrationForm, TicketLookupForm, normalize_contact,
+)
+from .ids import normalize_public_id
 from .models import Event, Passport, Redemption, Stamp, Stand
+from .permissions import (
+    assigned_stands, can_search_passports, is_manager, manager_only, prize_allowed, prize_only, search_only, staff_only,
+)
 from .services import (
-    CONSENT_VERSION, digest, eligible, find_ticket, issue_ticket, limit,
-    record_stamp, redeem, stamp_ready_at, station_code, valid_station_code, verify_pin,
+    CONSENT_VERSION, audit, client_address, digest, eligible, find_ticket, issue_ticket, limit, mask_contact,
+    record_stamp, redeem, set_gap_minutes, stamp_ready_at, station_code, valid_station_code, verify_pin,
 )
 
 
@@ -86,11 +96,6 @@ def interval_label(seconds):
         return "1 segundo" if secs == 1 else f"{secs} segundos"
     label = "1 minuto" if minutes == 1 else f"{minutes} minutos"
     return f"{label} e {secs} s" if secs else label
-
-
-def client_address(request):
-    # Apenas REMOTE_ADDR; encaminhamento de proxy requer configuração confiável.
-    return request.META.get("REMOTE_ADDR", "unknown")
 
 
 def contact_digests(contact):
@@ -180,7 +185,8 @@ def passport_page(request, p):
     visited = set(stamped_at)
     just_stamped = request.session.pop("just_stamped", None)
     rows = [
-        {"stand": s, "visited": s.pk in visited, "stamped_at": stamped_at.get(s.pk), "new": s.pk == just_stamped}
+        {"stand": s, "area": area_key(s), "visited": s.pk in visited, "stamped_at": stamped_at.get(s.pk),
+         "new": s.pk == just_stamped}
         for s in stands
     ]
     redeemed = Redemption.objects.filter(passport=p).exists()
@@ -273,34 +279,22 @@ def issue_redemption(request, p):
     return redirect("passport")
 
 
-def staff_only(view):
-    @login_required
-    @wraps(view)
-    def wrapped(request, *args, **kwargs):
-        if not request.user.is_staff:
-            return HttpResponseForbidden("Acesso restrito à equipe autorizada.")
-        return view(request, *args, **kwargs)
-    return wrapped
-
-
-def prize_allowed(user):
-    return user.is_superuser or (user.is_staff and user.groups.filter(name="Premiação").exists())
-
-
 @never_cache
 @staff_only
 def staff_home(request):
-    stands = Stand.objects.filter(active=True, event__active=True)
-    if not request.user.is_superuser:
-        stands = stands.filter(staff=request.user)
-    return render(request, "passport/staff_home.html", {"stands": stands, "prize_allowed": prize_allowed(request.user)})
+    user = request.user
+    stands = assigned_stands(user, Stand.objects.filter(active=True, event__active=True))
+    return render(request, "passport/staff_home.html", {
+        "stands": stands, "prize_allowed": prize_allowed(user),
+        "can_search": can_search_passports(user), "is_manager": is_manager(user),
+    })
 
 
 @never_cache
 @staff_only
 def station(request, stand_id):
     stand = get_object_or_404(Stand, pk=stand_id, active=True, event__active=True)
-    if not request.user.is_superuser and not stand.staff.filter(pk=request.user.pk).exists():
+    if not assigned_stands(request.user, Stand.objects.filter(pk=stand.pk)).exists():
         return HttpResponseForbidden("Este estande não está atribuído à sua conta.")
     now = timezone.now()
     code = station_code(stand, now)
@@ -314,10 +308,8 @@ def station(request, stand_id):
 
 
 @never_cache
-@staff_only
+@prize_only
 def prize_lookup(request):
-    if not prize_allowed(request.user):
-        return HttpResponseForbidden("Acesso restrito à equipe de premiação.")
     form = TicketLookupForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         return redirect("prize_review", code=form.cleaned_data["code"])
@@ -325,10 +317,8 @@ def prize_lookup(request):
 
 
 @never_cache
-@staff_only
+@prize_only
 def prize_review(request, code):
-    if not prize_allowed(request.user):
-        return HttpResponseForbidden("Acesso restrito à equipe de premiação.")
     if not re.fullmatch(r"[0-9A-Fa-f]{10}", code):
         return render(request, "passport/ticket_invalid.html", status=404)
     code = code.upper()
@@ -346,3 +336,110 @@ def prize_review(request, code):
             messages.error(request, "Código inválido ou expirado.")
         return redirect("prize_review", code=code)
     return render(request, "passport/prize_review.html", {"ticket": ticket, "already": already, "code": code})
+
+
+PAGE_SIZE = 20
+
+
+def search_passports(event, term):
+    """Devolve (queryset, tipo). Celular e identificador exigem correspondência exata; nome aceita trecho."""
+    base = Passport.objects.filter(event=event)
+    digits = re.sub(r"[^0-9]", "", term)
+    if re.fullmatch(r"\+?[0-9().\s-]+", term) and len(digits) >= 10:
+        try:
+            contact = normalize_contact(term)
+        except ValidationError:
+            return base.none(), "celular"
+        return base.filter(contact_digest__in=contact_digests(contact)), "celular"
+    public_id = normalize_public_id(term)
+    query = Q(name__icontains=term.strip())
+    if public_id:
+        query |= Q(public_id=public_id)
+    return base.filter(query), "identificador" if public_id else "nome"
+
+
+def with_progress(queryset):
+    on_active = Q(stamps__stand__active=True)
+    return queryset.annotate(
+        stamps_done=Count("stamps", filter=on_active, distinct=True),
+        required_done=Count("stamps", filter=on_active & Q(stamps__stand__required=True), distinct=True),
+        redeemed=Exists(Redemption.objects.filter(passport=OuterRef("pk"))),
+    )
+
+
+def prize_status(p, required_total):
+    if p.redeemed:
+        return "redeemed"
+    return "eligible" if required_total and p.required_done == required_total else "pending"
+
+
+@never_cache
+@require_safe
+@search_only
+def passport_search(request):
+    event = current_event()
+    if not event:
+        return render(request, "passport/unavailable.html", status=503)
+    form = PassportSearchForm(request.GET or None)
+    page, kind, results = None, None, []
+    stands = event.stands.filter(active=True)
+    total, required_total = stands.count(), stands.filter(required=True).count()
+    if form.is_bound and form.is_valid() and form.cleaned_data["q"]:
+        if not limit("staff.search", str(request.user.pk), 120):
+            form.add_error(None, "Muitas consultas em pouco tempo. Aguarde alguns minutos.")
+        else:
+            queryset, kind = search_passports(event, form.cleaned_data["q"])
+            page = Paginator(with_progress(queryset).order_by("name", "pk"), PAGE_SIZE).get_page(request.GET.get("pagina"))
+            results = [{"p": p, "contact": mask_contact(p.contact), "status": prize_status(p, required_total)} for p in page]
+            # O termo pesquisado não é registrado: pode ser nome ou telefone.
+            audit(request.user, "passport.search", tipo=kind, pagina=page.number, resultados=page.paginator.count)
+    return render(request, "passport/staff_search.html", {
+        "form": form, "page": page, "searched": page is not None, "results": results, "kind": kind, "total": total, "required_total": required_total,
+    })
+
+
+@never_cache
+@require_safe
+@search_only
+def passport_detail(request, public_id):
+    event = current_event()
+    raw = normalize_public_id(public_id)
+    if not event or not raw:
+        return render(request, "passport/unavailable.html", status=404)
+    p = get_object_or_404(with_progress(Passport.objects.filter(event=event)), public_id=raw)
+    stands = list(event.stands.filter(active=True))
+    stamped_at = dict(p.stamps.values_list("stand_id", "created_at"))
+    required_total = sum(1 for s in stands if s.required)
+    audit(request.user, "passport.view", p.public_id)
+    return render(request, "passport/staff_passport.html", {
+        "p": p, "contact": mask_contact(p.contact), "status": prize_status(p, required_total),
+        "rows": [{"stand": s, "area": area_key(s), "visited": s.pk in stamped_at, "stamped_at": stamped_at.get(s.pk)} for s in stands],
+        "total": len(stands), "required_total": required_total, "prize_allowed": prize_allowed(request.user),
+        "next_stamp_at": next_stamp_at(p),
+    })
+
+
+@never_cache
+@manager_only
+def manager_home(request):
+    event = current_event()
+    if not event:
+        return render(request, "passport/manager.html", {"event": None})
+    divisible = event.gap_seconds % 60 == 0
+    form = IntervalForm(request.POST or None, initial={"minutes": event.gap_seconds // 60} if divisible else None)
+    if request.method == "POST" and form.is_valid():
+        old, new = set_gap_minutes(event.pk, form.cleaned_data["minutes"], request.user)
+        if old == new:
+            messages.info(request, "O intervalo já era esse. Nada foi alterado.")
+        else:
+            messages.success(request, f"Intervalo alterado de {interval_label(old) or 'nenhum'} para {interval_label(new)}. "
+                                      "A mudança já vale para quem está aguardando o próximo carimbo.")
+        return redirect("manager_home")
+    now = timezone.now()
+    waiting = Passport.objects.filter(event=event, last_stamp_at__gt=now - timedelta(seconds=event.gap_seconds)).count() if event.gap_seconds else 0
+    stands = list(event.stands.filter(active=True))
+    unmatched = [s for s in stands if not area_key(s)]
+    return render(request, "passport/manager.html", {
+        "event": event, "form": form, "gap": interval_label(event.gap_seconds), "divisible": divisible,
+        "waiting": waiting, "stands": stands, "unmatched": unmatched,
+    })

@@ -5,10 +5,11 @@
   <div class="passport-cover-copy">
     <p class="eyebrow">Seu passaporte digital</p>
     <h1 id="passport-title">Olá, <em>{{ p.name }}!</em></h1>
+    <p class="passport-number">Passaporte nº <strong>{{ p.display_id }}</strong></p>
     <p>Cada visita é uma nova descoberta. Acompanhe sua jornada pelo Circuito Senac.</p>
   </div>
-  <div class="passport-count"><strong>{{ done }}<span>/{{ total }}</span></strong><span>carimbos <br>registrados</span></div>
-  {% if total %}<div class="progress" role="progressbar" aria-label="Carimbos registrados" aria-valuenow="{{ done }}" aria-valuemin="0" aria-valuemax="{{ total }}"><div style="width:{% widthratio done total 100 %}%"></div></div>{% endif %}
+  <div class="passport-count"><strong>{{ done }}<span>/{{ total }}</span></strong><span>insígnias <br>conquistadas</span></div>
+  {% if total %}<div class="progress" role="progressbar" aria-label="Insígnias conquistadas" aria-valuenow="{{ done }}" aria-valuemin="0" aria-valuemax="{{ total }}"><div style="width:{% widthratio done total 100 %}%"></div></div>{% endif %}
 </section>
 {% if eligible and not redeemed %}{% include "passport/_reward.html" with first=True %}{% endif %}
 <section class="action-panel" aria-labelledby="next-step">
@@ -19,15 +20,9 @@
   </div>
 </section>
 <section aria-labelledby="areas">
-  <div class="section-heading compact"><div><p class="eyebrow">Descubra cada espaço</p><h2 id="areas">Seu circuito</h2></div>{% if gap %}<p>Aguarde {{ gap }} entre carimbos registrados.</p>{% endif %}</div>
-  <div class="stand-grid">
-    {% for row in rows %}
-    <article class="stand{% if row.visited %} visited{% endif %}{% if row.new %} just-stamped{% endif %}">
-      {% include "passport/_area_icon.html" with stand=row.stand only %}
-      <div class="stand-copy"><h3>{{ row.stand.name }}{% if row.new %} <span class="stamp-new">Novo</span>{% endif %}</h3><p>{% if row.visited %}<span class="status-check">{% include "passport/_icon.html" with icon="check" only %}</span> Carimbado às <time datetime="{{ row.stamped_at|date:'c' }}">{{ row.stamped_at|time:"H:i" }}</time>{% else %}Aguardando visita{% endif %}{% if not row.stand.required %} · opcional{% endif %}</p></div>
-    </article>
-    {% empty %}<p class="empty-state">Nenhum estande configurado. Procure a equipe de organização.</p>{% endfor %}
-  </div>
+  <div class="section-heading compact"><div><p class="eyebrow">Descubra cada espaço</p><h2 id="areas">Suas insígnias</h2></div><p>Cada carimbo confirmado conquista a insígnia do espaço.{% if gap %} Aguarde {{ gap }} entre carimbos registrados.{% endif %}</p></div>
+  {% if rows %}<ul class="badge-grid">{% for row in rows %}{% include "passport/_badge.html" %}{% endfor %}</ul>
+  {% else %}<p class="empty-state">Nenhum estande configurado. Procure a equipe de organização.</p>{% endif %}
 </section>
 {% if not eligible or redeemed %}{% include "passport/_reward.html" %}{% endif %}
 {% endblock %}

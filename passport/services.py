@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import hmac
 import secrets
 from datetime import timedelta
@@ -6,18 +7,24 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
-from .models import Passport, RateBucket, Redemption, RedemptionTicket, Stamp, Stand
+from .models import AuditEntry, Event, Passport, RateBucket, Redemption, RedemptionTicket, Stamp, Stand
 
 CONSENT_VERSION = "marketing-v2-celular-provisoria"
+security_log = logging.getLogger("passport.security")
 
 
 def digest(kind, value):
     return salted_hmac("passaporte." + kind, str(value), algorithm="sha256").hexdigest()
 
 
+def rate_key(kind, value):
+    return digest("rate." + kind, value)
+
+
 def limit(kind, value, maximum, seconds=600):
     now = timezone.now()
-    key = digest("rate." + kind, value)
+    key = rate_key(kind, value)
+    first_block = False
     with transaction.atomic():
         bucket, _ = RateBucket.objects.select_for_update().get_or_create(
             key=key, defaults={"window_start": now, "count": 0}
@@ -27,8 +34,36 @@ def limit(kind, value, maximum, seconds=600):
         allowed = bucket.count < maximum
         if allowed:
             bucket.count += 1
+        elif bucket.count == maximum:
+            # Marca o primeiro bloqueio da janela para registrar um único aviso, não um por tentativa.
+            bucket.count += 1
+            first_block = True
         bucket.save(update_fields=["window_start", "count"])
+    if first_block:
+        # Nunca registre o valor (nome de usuário, endereço, contato): apenas o tipo e a chave derivada.
+        security_log.warning(
+            "Limite de tentativas atingido: tipo=%s chave=%s ate=%s",
+            kind, key, (bucket.window_start + timedelta(seconds=seconds)).isoformat(timespec="seconds"),
+        )
     return allowed
+
+
+def blocked_until(kind, value, maximum, seconds=600):
+    """Fim do bloqueio em vigor, ou None se novas tentativas são aceitas."""
+    bucket = RateBucket.objects.filter(key=rate_key(kind, value)).first()
+    if not bucket or bucket.count < maximum:
+        return None
+    end = bucket.window_start + timedelta(seconds=seconds)
+    return end if end > timezone.now() else None
+
+
+def limit_reset(kind, value):
+    return RateBucket.objects.filter(key=rate_key(kind, value)).delete()[0] > 0
+
+
+def client_address(request):
+    # Apenas REMOTE_ADDR; encaminhamento de proxy requer configuração confiável.
+    return request.META.get("REMOTE_ADDR", "unknown")
 
 
 def station_code(stand, at=None):
@@ -122,3 +157,39 @@ def redeem(code, staff):
             return "invalid"
         _, created = Redemption.objects.get_or_create(passport=p, defaults={"staff": staff})
         return "ok" if created else "duplicate"
+
+
+def audit(user, action, target="", **detail):
+    return AuditEntry.objects.create(user=user, action=action, target=str(target)[:40], detail=detail)
+
+
+def mask_contact(contact):
+    """Mostra o suficiente para conferir com o visitante, sem expor o número completo."""
+    if "@" in contact:
+        local, _, domain = contact.partition("@")
+        return f"{local[:1]}•••@•••{domain[-4:]}" if local else "•••"
+    digits = "".join(ch for ch in contact if ch.isdigit())
+    if len(digits) == 13 and digits.startswith("55"):
+        digits = digits[2:]
+    if len(digits) == 11:
+        return f"({digits[:2]}) •••••-••{digits[-2:]}"
+    return f"•••{digits[-2:]}" if len(digits) >= 4 else "•••"
+
+
+MIN_GAP_MINUTES, MAX_GAP_MINUTES = 1, 60
+
+
+def set_gap_minutes(event_id, minutes, user):
+    """Altera Event.gap_seconds (a única fonte do intervalo) e registra quem alterou."""
+    if not MIN_GAP_MINUTES <= minutes <= MAX_GAP_MINUTES:
+        raise ValueError("intervalo fora do limite")
+    with transaction.atomic():
+        event = Event.objects.select_for_update().get(pk=event_id)
+        old, new = event.gap_seconds, minutes * 60
+        if old != new:
+            event.gap_seconds = new
+            event.save(update_fields=["gap_seconds"])
+            audit(user, "event.gap", event.pk, de_segundos=old, para_segundos=new)
+    if old != new:
+        security_log.info("Intervalo alterado: evento_id=%s de=%s para=%s por_id=%s", event_id, old, new, user.pk)
+    return old, new

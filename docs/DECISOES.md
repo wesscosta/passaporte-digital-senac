@@ -14,6 +14,14 @@ Decisão de 05/11: novos cadastros usam exclusivamente celular brasileiro com DD
 
 Códigos de estande mudam a cada minuto. Aceita-se a janela anterior para evitar falha na virada: um código pode valer por até aproximadamente 120 segundos. QR e código não provam presença física: podem ser compartilhados. O código de retirada vale cinco minutos e pode ser regenerado, invalidando o anterior.
 
+Decisões de 06/11 (área da equipe, gestão e insígnias):
+
+- Gestor é quem tem a permissão passport.manage_event; o superusuário a tem implicitamente. A premiação continua restrita ao superusuário e ao grupo Premiação.
+- O intervalo é configurado na tela de gestão em minutos inteiros, de 1 a 60, gravado em Event.gap_seconds (única fonte). Zerar o intervalo não é oferecido na tela, porque o intervalo é regra confirmada; o administrativo ainda permite outros valores. A mudança vale imediatamente para quem aguarda: o próximo carimbo é liberado em último carimbo + novo intervalo. Carimbos já registrados não mudam.
+- O identificador do passaporte tem 8 caracteres de um alfabeto sem caracteres ambíguos, gerado com secrets e protegido por restrição única. A migração 0002 preenche os passaportes existentes sem alterar outros campos.
+- A área de cada estande é deduzida do nome (sem acento e sem diferença de maiúsculas; GESCOM é aceito). Estandes com outro nome recebem insígnia neutra e aparecem sinalizados na gestão. Um campo explícito de área exigiria decisão e migração; não foi criado.
+- Celular e identificador só são encontrados com valor completo, para não permitir listar visitantes por trechos de número. Nome exige ao menos 3 caracteres.
+
 ## Arquitetura em avaliação
 
 Monólito Django com HTML renderizado no servidor, PostgreSQL, CSS local e código JavaScript mínimo. A escolha busca simplicidade operacional e páginas pequenas, mas **não significa que Python ou Django sejam intrinsecamente a melhor opção para qualquer carga**. A capacidade ainda precisa ser medida em infraestrutura semelhante à produção, com carga e critérios acordados. Não foi feita comparação experimental com Node.js, Go ou outras alternativas.
@@ -26,4 +34,6 @@ Redis, CDN e arquitetura distribuída não são pressupostos; avaliar conforme m
 - Data, duração, distribuição de chegada, pico simultâneo e infraestrutura de internet do evento.
 - Política de privacidade, suporte ao esquecimento do PIN, autenticação da equipe e procedimentos para menores.
 - Forma de entrega, conferência de estoque, prevenção de fraude e tratamento de incidentes.
-- Aprovação institucional de conteúdo, identidade visual e textos.
+- Aprovação institucional de conteúdo, identidade visual e textos, inclusive do desenho das insígnias derivado dos selos do PDF.
+- Associação definitiva entre estandes e áreas, caso os nomes não coincidam com as seis áreas de referência.
+- Limites aceitáveis do intervalo entre carimbos e quem pode ser gestor.

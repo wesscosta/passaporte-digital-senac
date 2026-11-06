@@ -1,0 +1,38 @@
+{% extends "passport/base.html" %}
+{% block title %}Gestão do evento{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Painel da equipe</a>
+<header class="page-heading"><div><p class="eyebrow">Gestão</p><h1>Gestão do evento</h1>{% if event %}<p>{{ event.name }}</p>{% endif %}</div></header>
+{% if not event %}
+<p class="notice">Não há exatamente um evento ativo. Ajuste os eventos no administrativo antes de alterar o intervalo.</p>
+{% else %}
+<div class="manager-grid">
+  <section class="form-card" aria-labelledby="intervalo">
+    <h2 id="intervalo">Intervalo entre carimbos</h2>
+    <p>Tempo mínimo entre dois carimbos registrados pelo mesmo visitante. Não é tempo de permanência no estande.</p>
+    <p>Valor atual</p>
+    <p class="current-value">{{ gap|default:"sem intervalo" }}</p>
+    {% if not divisible %}<p class="notice">O valor atual não é um número inteiro de minutos e será substituído pelo valor que você salvar.</p>{% endif %}
+    <form method="post" novalidate>{% csrf_token %}
+      {{ form.non_field_errors }}
+      <p>{{ form.minutes.label_tag }}<span class="field-help" id="minutes-help">Entre 1 e 60 minutos. O padrão do evento é 5.</span>{{ form.minutes }}{{ form.minutes.errors }}</p>
+      <button class="button" type="submit">Salvar intervalo</button>
+    </form>
+  </section>
+  <section class="tool-card" aria-labelledby="efeito">
+    <h2 id="efeito">O que muda ao salvar</h2>
+    <ul class="plain-list">
+      <li>Vale imediatamente. Quem está aguardando passa a poder carimbar no horário do último carimbo somado ao novo intervalo.</li>
+      <li>Agora, {{ waiting }} visitante{{ waiting|pluralize }} aguarda{{ waiting|pluralize:"m" }} o fim do intervalo.</li>
+      <li>Carimbos e insígnias já conquistados não mudam.</li>
+      <li>Os códigos dos estandes (1 minuto) e o código de retirada (5 minutos) continuam com a validade própria.</li>
+      <li>A alteração fica registrada com seu usuário e o horário.</li>
+    </ul>
+  </section>
+</div>
+<section aria-labelledby="estandes" class="manager-stands">
+  <div class="section-heading compact"><div><h2 id="estandes">Estandes e insígnias</h2></div><p>{{ stands|length }} estande{{ stands|length|pluralize }} ativo{{ stands|length|pluralize }}. A quantidade é configurada no administrativo.</p></div>
+  {% if unmatched %}<p class="notice">Sem área identificada pelo nome, com insígnia neutra: {% for s in unmatched %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Confirme a área desses estandes com a organização.</p>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

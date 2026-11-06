@@ -5,6 +5,12 @@
   <div><p class="eyebrow">Área da equipe</p><h1>Painel da equipe</h1><p>Olá, {{ request.user.get_username }}. Escolha um estande para exibir o QR code aos visitantes.</p></div>
   <span class="role-badge"><span class="status-dot" aria-hidden="true"></span> Acesso autorizado</span>
 </header>
+{% if can_search or is_manager %}
+<div class="staff-tools">
+  {% if can_search %}<section class="tool-card" aria-labelledby="tool-search"><h2 id="tool-search">Consultar passaportes</h2><p>Pesquise por nome, celular ou identificador para orientar o visitante.</p><a class="button secondary" href="{% url 'passport_search' %}">Pesquisar passaportes</a></section>{% endif %}
+  {% if is_manager %}<section class="tool-card" aria-labelledby="tool-manager"><h2 id="tool-manager">Gestão do evento</h2><p>Consulte e ajuste o intervalo entre carimbos do evento ativo.</p><a class="button secondary" href="{% url 'manager_home' %}">Abrir gestão</a></section>{% endif %}
+</div>
+{% endif %}
 <section aria-labelledby="estandes-title">
   <div class="section-heading compact"><div><p class="eyebrow">Circuito Senac</p><h2 id="estandes-title">Seus estandes</h2></div><p>Selecione a área onde você está atendendo.</p></div>
   <ul class="staff-grid">
