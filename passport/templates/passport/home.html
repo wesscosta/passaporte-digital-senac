@@ -13,7 +13,7 @@
       {% else %}
       <div class="actions">
         <a class="button" href="{% url 'register' %}">Criar meu passaporte {% include "passport/_icon.html" with icon="forward" only %}</a>
-        <a class="button secondary" href="{% url 'recover' %}">Já tenho acesso</a>
+        <a class="button secondary" href="{% url 'recover' %}">Entrar no passaporte</a>
       </div>
       {% endif %}
     {% else %}<p class="notice">O evento não está disponível neste momento.</p>{% endif %}
@@ -22,13 +22,13 @@
   <div class="hero-art" aria-hidden="true">
     <div class="hero-art-wheel"></div>
     <div class="brand-card"><img src="{% static 'passport/marca-circuito.webp' %}" width="650" height="290" alt=""></div>
-    <span class="hero-sticker">Explore<br>e descubra {% include "passport/_icon.html" with icon="external" only %}</span>
+    <span class="hero-sticker">Explore<br>e descubra</span>
   </div>
 </section>
 <section class="how-section" aria-labelledby="como-funciona">
   <div class="section-heading"><div><p class="eyebrow">O caminho é simples</p><h2 id="como-funciona">Sua jornada em três passos</h2></div><p>Prepare seu celular e aproveite o circuito no seu ritmo.</p></div>
   <div class="steps">
-    <article><span class="number">01</span><h3>Crie seu acesso</h3><p>Informe nome, contato e um PIN para recuperar seu passaporte.</p></article>
+    <article><span class="number">01</span><h3>Crie seu passaporte</h3><p>Informe nome, celular e um PIN para entrar de novo quando precisar.</p></article>
     <article><span class="number">02</span><h3>Visite os estandes</h3><p>Escaneie o QR code ou digite o código exibido em cada espaço.</p></article>
     <article><span class="number">03</span><h3>Colecione carimbos</h3><p>Acompanhe seu progresso{% if gap %} e aguarde {{ gap }} entre registros{% endif %}.</p></article>
   </div>

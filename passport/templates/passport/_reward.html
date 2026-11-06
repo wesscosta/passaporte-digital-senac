@@ -1,0 +1,10 @@
+<section class="reward{% if first %} reward-first{% endif %}" aria-labelledby="premio">
+  <div class="reward-copy"><p class="eyebrow">{% if first %}Prêmio liberado{% else %}Reta final{% endif %}</p><h2 id="premio">Setor de premiação</h2>
+    {% if redeemed %}<p>Entrega já registrada pela equipe. Obrigado por participar!</p>
+    {% elif eligible %}<p>Você completou os estandes obrigatórios. Gere seu código e apresente-o à equipe de premiação. Ele vale por cinco minutos.</p>
+    <form method="post" action="{% url 'issue_redemption' %}">{% csrf_token %}<button class="button" type="submit">{% if ticket_code %}Gerar novo código{% else %}Gerar código de retirada{% endif %}</button></form>
+    {% if ticket_code %}<div class="ticket"><img src="data:image/svg+xml;base64,{{ ticket_qr }}" alt="QR code de retirada para a equipe de premiação"><p>Código de retirada</p><strong>{{ ticket_code }}</strong><small>Apresente somente à equipe autorizada.</small></div>{% endif %}
+    {% else %}<p>Complete os estandes obrigatórios para habilitar a retirada.</p>{% endif %}
+  </div>
+  <span class="reward-wheel" aria-hidden="true"></span>
+</section>

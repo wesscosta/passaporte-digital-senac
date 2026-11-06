@@ -18,6 +18,11 @@ Revisão de 05/11/2026 (entrada pelo QR e horário do próximo carimbo), com dad
 - Os textos de intervalo do início e do passaporte passaram a usar o gap_seconds do evento (testados com 300, 90 e 0 segundos); o contador do passaporte voltou a exibir "carimbos registrados" com espaço em 360 pixels. Suíte com 27 testes aprovada no PostgreSQL.
 - Brave headless com viewport emulado de 320 pixels: entrada pelo QR, cadastro com visita pendente, passaporte, confirmação com espera e código expirado sem rolagem horizontal. Não testado em Android ou iOS reais nem com leitor de tela.
 
+Revisão de 05/11/2026 (premiação no topo, retorno do carimbo, ícones e nome único para entrar), com dados fictícios em banco PostgreSQL temporário, já removido:
+
+- 30 testes automatizados passaram no PostgreSQL, inclusive a concorrência entre dois carimbos. Novos testes: a premiação sobe para o topo só enquanto pode ser retirada; o carimbo informa estande e horário e destaca o cartão uma única vez; as telas de entrada usam apenas "Entrar no passaporte" e não exibem o ícone de link externo.
+- Brave headless com viewport emulado de 320 pixels: passaporte após carimbo, passaporte elegível com código de retirada e início sem rolagem horizontal. A animação do carimbo é desativada pela preferência de movimento reduzido já existente; o estado novo também é indicado por texto ("Novo"). Não testado em aparelhos reais nem com leitor de tela.
+
 Resultados da versão inicial, preservados para histórico:
 
 - Django check sem erros.

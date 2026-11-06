@@ -15,7 +15,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from .forms import ManualStampForm, RecoveryForm, RegistrationForm, TicketLookupForm
-from .models import Event, Passport, Redemption, Stand
+from .models import Event, Passport, Redemption, Stamp, Stand
 from .services import (
     CONSENT_VERSION, digest, eligible, find_ticket, issue_ticket, limit,
     record_stamp, redeem, stamp_ready_at, station_code, valid_station_code, verify_pin,
@@ -124,7 +124,7 @@ def register(request):
                 event=event, contact_digest__in=contact_digests(data["contact"])
             ).exists()
             if already_registered:
-                form.add_error(None, "Não foi possível cadastrar. Confira os dados ou tente recuperar o acesso.")
+                form.add_error(None, "Não foi possível cadastrar. Confira os dados ou entre no passaporte, se já tiver um.")
             else:
                 pin_hash = make_password(data["pin"])
                 try:
@@ -138,7 +138,7 @@ def register(request):
                         )
                     return sign_in_participant(request, p)
                 except IntegrityError:
-                    form.add_error(None, "Não foi possível cadastrar. Confira os dados ou tente recuperar o acesso.")
+                    form.add_error(None, "Não foi possível cadastrar. Confira os dados ou entre no passaporte, se já tiver um.")
     return render(request, "passport/register.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
 
 
@@ -168,7 +168,7 @@ def recover(request):
                         p.session_version += 1
                         p.save(update_fields=["session_version"])
                         return sign_in_participant(request, p)
-        form.add_error(None, "Não foi possível recuperar o acesso. Confira os dados ou aguarde e tente novamente.")
+        form.add_error(None, "Não foi possível entrar. Confira os dados ou aguarde e tente novamente.")
     return render(request, "passport/recover.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
 
 
@@ -176,8 +176,13 @@ def recover(request):
 @participant_required
 def passport_page(request, p):
     stands = list(p.event.stands.filter(active=True))
-    visited = set(p.stamps.values_list("stand_id", flat=True))
-    rows = [{"stand": s, "visited": s.pk in visited} for s in stands]
+    stamped_at = dict(p.stamps.values_list("stand_id", "created_at"))
+    visited = set(stamped_at)
+    just_stamped = request.session.pop("just_stamped", None)
+    rows = [
+        {"stand": s, "visited": s.pk in visited, "stamped_at": stamped_at.get(s.pk), "new": s.pk == just_stamped}
+        for s in stands
+    ]
     redeemed = Redemption.objects.filter(passport=p).exists()
     code = request.session.get("ticket_code")
     ticket = find_ticket(code) if code else None
@@ -206,14 +211,16 @@ def report_stamp(request, p, stand_id, code):
         return "limited"
     result, seconds = record_stamp(p.pk, request.session.get("passport_version"), stand_id, code)
     if result == "ok":
-        messages.success(request, "Carimbo registrado com sucesso.")
+        stamp = Stamp.objects.select_related("stand").get(passport=p, stand_id=stand_id)
+        request.session["just_stamped"] = stand_id
+        messages.success(request, f"{stamp.stand.name} carimbado às {timezone.localtime(stamp.created_at):%H:%M}.")
     elif result == "duplicate":
         messages.info(request, "Este estande já foi registrado. O intervalo não foi reiniciado.")
     elif result == "wait":
         minutes, secs = divmod(seconds, 60)
         messages.error(request, f"Aguarde {minutes}min {secs:02d}s para o próximo carimbo.")
     elif result == "session":
-        messages.error(request, "Sua sessão foi substituída. Recupere o acesso novamente.")
+        messages.error(request, "Seu passaporte foi aberto em outro aparelho. Entre no passaporte novamente.")
     else:
         messages.error(request, "Código inválido ou expirado. Peça o código atualizado no estande.")
     return result

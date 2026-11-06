@@ -4,9 +4,9 @@
 <a class="back" href="{% url 'home' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao início</a>
 <div class="form-card">
   <p class="eyebrow">Vamos começar</p><h1>Crie seu passaporte</h1>
-  <p>Informe seu celular com DDD e escolha um PIN de seis números. Guarde os dois para recuperar o acesso.</p>
+  <p>Informe seu celular com DDD e escolha um PIN de seis números. Guarde os dois para entrar de novo no passaporte.</p>
   {% if pending_stand %}<p class="pending-visit">Depois do cadastro, você confirma a visita a <strong>{{ pending_stand.name }}</strong>.</p>{% endif %}
-  <p class="notice">O PIN ajuda a recuperar o acesso, mas não confirma a posse do telefone. Política de privacidade ainda pendente de aprovação.</p>
+  <p class="notice">O PIN permite entrar de novo no passaporte, mas não confirma a posse do telefone. Política de privacidade ainda pendente de aprovação.</p>
   <form method="post" novalidate>
     {% csrf_token %}
     {{ form.non_field_errors }}
@@ -27,7 +27,7 @@
     {% endfor %}
     <button class="button form-submit" type="submit">Criar passaporte {% include "passport/_icon.html" with icon="forward" only %}</button>
   </form>
-  <p class="form-footer">Já tem um passaporte? <a href="{% url 'recover' %}">Recuperar acesso</a></p>
+  <p class="form-footer">Já tem um passaporte? <a href="{% url 'recover' %}">Entrar no passaporte</a></p>
 </div>
 {% endblock %}
 

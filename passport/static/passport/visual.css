@@ -108,6 +108,11 @@ p{max-width:68ch}
 .stand h3{overflow-wrap:anywhere}
 .stand.visited{border-color:#a7d6b5;background:#f6fcf7}
 .status-check{color:#14623b;font-weight:800}
+.stand.just-stamped{border:2px solid #237249;box-shadow:0 0 0 4px #cfeedd}
+.stand.just-stamped .sector-icon{animation:stamp-in .5s cubic-bezier(.2,1.4,.4,1) both}
+.stamp-new{display:inline-block;margin-left:4px;padding:2px 8px;border-radius:999px;background:#14623b;color:#fff;font:700 .7rem/1.4 system-ui,sans-serif;vertical-align:2px}
+@keyframes stamp-in{from{transform:scale(1.6) rotate(-12deg);opacity:0}to{transform:none;opacity:1}}
+.reward-first{margin:22px 0 0}
 .empty-state{padding:20px;background:#fff;border:1px dashed #a9bbc5;border-radius:12px;list-style:none}
 .reward{position:relative;overflow:hidden;background:#ffe8ac;border:1px solid #f1d185}
 .reward-copy{position:relative;z-index:1;max-width:620px}

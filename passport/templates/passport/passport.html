@@ -10,10 +10,11 @@
   <div class="passport-count"><strong>{{ done }}<span>/{{ total }}</span></strong><span>carimbos <br>registrados</span></div>
   {% if total %}<div class="progress" role="progressbar" aria-label="Carimbos registrados" aria-valuenow="{{ done }}" aria-valuemin="0" aria-valuemax="{{ total }}"><div style="width:{% widthratio done total 100 %}%"></div></div>{% endif %}
 </section>
+{% if eligible and not redeemed %}{% include "passport/_reward.html" with first=True %}{% endif %}
 <section class="action-panel" aria-labelledby="next-step">
   <div><p class="eyebrow">Está em um estande?</p><h2 id="next-step">Registre sua visita</h2><p>Leia o QR code ou informe o código da tela do estande.</p>{% include "passport/_next_stamp.html" %}</div>
   <div class="actions">
-    <a class="button" href="{% url 'manual_stamp' %}#leitor">Escanear QR code {% include "passport/_icon.html" with icon="external" only %}</a>
+    <a class="button" href="{% url 'manual_stamp' %}#leitor">Escanear QR code {% include "passport/_icon.html" with icon="qr" only %}</a>
     <a class="button secondary" href="{% url 'manual_stamp' %}#codigo">Digitar código</a>
   </div>
 </section>
@@ -21,22 +22,13 @@
   <div class="section-heading compact"><div><p class="eyebrow">Descubra cada espaço</p><h2 id="areas">Seu circuito</h2></div>{% if gap %}<p>Aguarde {{ gap }} entre carimbos registrados.</p>{% endif %}</div>
   <div class="stand-grid">
     {% for row in rows %}
-    <article class="stand {% if row.visited %}visited{% endif %}">
+    <article class="stand{% if row.visited %} visited{% endif %}{% if row.new %} just-stamped{% endif %}">
       {% include "passport/_area_icon.html" with stand=row.stand only %}
-      <div class="stand-copy"><h3>{{ row.stand.name }}</h3><p>{% if row.visited %}<span class="status-check">{% include "passport/_icon.html" with icon="check" only %}</span> Carimbado{% else %}Aguardando visita{% endif %}{% if not row.stand.required %} · opcional{% endif %}</p></div>
+      <div class="stand-copy"><h3>{{ row.stand.name }}{% if row.new %} <span class="stamp-new">Novo</span>{% endif %}</h3><p>{% if row.visited %}<span class="status-check">{% include "passport/_icon.html" with icon="check" only %}</span> Carimbado às <time datetime="{{ row.stamped_at|date:'c' }}">{{ row.stamped_at|time:"H:i" }}</time>{% else %}Aguardando visita{% endif %}{% if not row.stand.required %} · opcional{% endif %}</p></div>
     </article>
     {% empty %}<p class="empty-state">Nenhum estande configurado. Procure a equipe de organização.</p>{% endfor %}
   </div>
 </section>
-<section class="reward" aria-labelledby="premio">
-  <div class="reward-copy"><p class="eyebrow">Reta final</p><h2 id="premio">Setor de premiação</h2>
-    {% if redeemed %}<p>Entrega já registrada pela equipe. Obrigado por participar!</p>
-    {% elif eligible %}<p>Você completou os estandes obrigatórios. Gere seu código e apresente-o à equipe de premiação. Ele vale por cinco minutos.</p>
-    <form method="post" action="{% url 'issue_redemption' %}">{% csrf_token %}<button class="button" type="submit">{% if ticket_code %}Gerar novo código{% else %}Gerar código de retirada{% endif %}</button></form>
-    {% if ticket_code %}<div class="ticket"><img src="data:image/svg+xml;base64,{{ ticket_qr }}" alt="QR code de retirada para a equipe de premiação"><p>Código de retirada</p><strong>{{ ticket_code }}</strong><small>Apresente somente à equipe autorizada.</small></div>{% endif %}
-    {% else %}<p>Complete os estandes obrigatórios para habilitar a retirada.</p>{% endif %}
-  </div>
-  <span class="reward-wheel" aria-hidden="true"></span>
-</section>
+{% if not eligible or redeemed %}{% include "passport/_reward.html" %}{% endif %}
 {% endblock %}
 

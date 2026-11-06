@@ -116,7 +116,7 @@ class PassportTests(TestCase):
         for _ in range(5):
             self.client.post(reverse("recover"), {"contact": p.contact, "pin": "000000"})
         response = self.client.post(reverse("recover"), {"contact": p.contact, "pin": "123456"})
-        self.assertContains(response, "Não foi possível recuperar")
+        self.assertContains(response, "Não foi possível entrar")
         p.refresh_from_db()
         self.assertEqual(p.session_version, 1)
 
@@ -124,7 +124,7 @@ class PassportTests(TestCase):
         p = self.make_passport()
         for contact in (p.contact, "outra@example.com"):
             response = self.client.post(reverse("recover"), {"contact": contact, "pin": "000000"})
-            self.assertContains(response, "Não foi possível recuperar o acesso")
+            self.assertContains(response, "Não foi possível entrar")
 
     def test_cooldown_duplicate_and_failed_attempt_do_not_reset_clock(self):
         p = self.make_passport()
@@ -225,6 +225,43 @@ class PassportTests(TestCase):
         p = self.make_passport()
         self.in_session(self.client, p)
         self.assertContains(self.client.get(reverse("passport")), "carimbos <br>registrados")
+
+    def test_stamp_feedback_names_stand_and_highlights_it_once(self):
+        p = self.make_passport()
+        self.in_session(self.client, p)
+        url = reverse("scan_stamp", args=[self.a.pk, station_code(self.a)])
+        response = self.client.post(url, follow=True)
+        stamp = Stamp.objects.get()
+        shown = timezone.localtime(stamp.created_at).strftime("%H:%M")
+        self.assertContains(response, f"Área A carimbado às {shown}.")
+        self.assertContains(response, "just-stamped", count=1)
+        self.assertContains(response, f"Carimbado às <time datetime=")
+        self.assertNotContains(self.client.get(reverse("passport")), "just-stamped")
+
+    def test_reward_moves_to_top_only_while_it_can_be_claimed(self):
+        p = self.make_passport()
+        self.in_session(self.client, p)
+        html = self.client.get(reverse("passport")).content.decode()
+        self.assertLess(html.index('id="next-step"'), html.index('id="premio"'))
+        self.complete(p)
+        html = self.client.get(reverse("passport")).content.decode()
+        self.assertLess(html.index('id="premio"'), html.index('id="next-step"'))
+        self.assertIn("reward-first", html)
+        Redemption.objects.create(passport=p, staff=User.objects.create_user("prize", is_staff=True))
+        html = self.client.get(reverse("passport")).content.decode()
+        self.assertLess(html.index('id="next-step"'), html.index('id="premio"'))
+
+    def test_sign_in_has_one_name_and_no_external_link_icon(self):
+        p = self.make_passport()
+        scan = reverse("scan_stamp", args=[self.a.pk, station_code(self.a)])
+        for url in (reverse("home"), reverse("register"), reverse("recover"), scan):
+            response = self.client.get(url)
+            self.assertContains(response, "Entrar no passaporte")
+            for old in ("Já tenho acesso", "Recuperar acesso", "Recupere seu acesso", "Já tenho passaporte"):
+                self.assertNotContains(response, old)
+        self.in_session(self.client, p)
+        for url in (reverse("passport"), reverse("manual_stamp")):
+            self.assertNotContains(self.client.get(url), "M7 17 17 7")
 
     def test_register_visit_offers_camera_and_manual_fallback(self):
         p = self.make_passport()

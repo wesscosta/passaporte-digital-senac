@@ -12,7 +12,7 @@
     <li><a class="staff-card" href="{% url 'station' stand.pk %}">
       {% include "passport/_area_icon.html" with stand=stand only %}
       <span class="staff-card-copy"><strong>{{ stand.name }}</strong><span>Exibir QR code e código</span></span>
-      <span class="card-arrow">{% include "passport/_icon.html" with icon="external" only %}</span>
+      <span class="card-arrow">{% include "passport/_icon.html" with icon="forward" only %}</span>
     </a></li>
     {% empty %}<li class="empty-state">Nenhum estande atribuído a esta conta. Procure a organização.</li>{% endfor %}
   </ul>
