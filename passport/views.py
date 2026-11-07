@@ -2,6 +2,7 @@ import base64
 import csv
 import io
 import re
+import secrets
 from datetime import timedelta
 from functools import wraps
 import qrcode
@@ -20,17 +21,19 @@ from django.core.paginator import Paginator
 from django.db.models import Count, Exists, OuterRef, Q
 from .areas import AREAS, area_key
 from .forms import (
-    IntervalForm, ManualStampForm, PassportSearchForm, RecoveryForm, RegistrationForm, TicketLookupForm, normalize_contact,
+    IntervalForm, ManualStampForm, PassportSearchForm, PinResetForm, PinResetSearchForm, RecoveryForm, RegistrationForm,
+    TicketLookupForm, normalize_contact,
 )
 from .ids import normalize_public_id
 from .models import Event, Passport, Redemption, Stamp, Stand
 from .permissions import (
-    assigned_stands, can_search_passports, forbidden, is_manager, manager_only, prize_allowed, prize_only, search_only,
-    staff_only,
+    assigned_stands, can_reset_pin, can_search_passports, can_skip_pin_check, forbidden, is_manager, manager_only,
+    pin_reset_only, prize_allowed, prize_only, search_only, staff_only,
 )
 from .services import (
-    CONSENT_VERSION, IMAGE_CONSENT_VERSION, audit, client_address, digest, eligible, find_ticket, issue_ticket, limit, mask_contact,
-    record_stamp, redeem, set_gap_minutes, stamp_ready_at, station_code, valid_station_code, verify_pin,
+    CONSENT_VERSION, IMAGE_CONSENT_VERSION, audit, client_address, digest, eligible, find_scan_voucher,
+    find_ticket, issue_scan_voucher, issue_ticket, limit, mask_contact, record_stamp, record_stamp_with_voucher, redeem,
+    reset_visitor_pin, set_gap_minutes, stamp_ready_at, station_code, valid_station_code, verify_pin,
 )
 
 
@@ -95,17 +98,21 @@ def sign_in_participant(request, p, *, remember=True):
     request.session["passport_id"] = p.pk
     request.session["passport_version"] = p.session_version
     request.session.pop("ticket_code", None)
-    pending = request.session.pop("pending_scan", None)
-    if pending and isinstance(pending, list) and len(pending) == 2:
-        return redirect("scan_stamp", stand_id=pending[0], code=pending[1])
+    # cycle_key troca a chave da sessão, mas preserva os dados: o comprovante da leitura do QR segue junto.
+    if request.session.get(VOUCHER_SESSION_KEY):
+        return redirect("scan_voucher_confirm")
     return redirect("passport")
 
 
-def pending_stand(request, event):
-    pending = request.session.get("pending_scan")
-    if not (isinstance(pending, list) and len(pending) == 2):
+VOUCHER_SESSION_KEY = "scan_voucher"
+
+
+def pending_voucher(request, event=None):
+    """Comprovante válido da leitura de QR guardado nesta sessão, ou None."""
+    voucher = find_scan_voucher(request.session.get(VOUCHER_SESSION_KEY))
+    if voucher and event and voucher.event_id != event.pk:
         return None
-    return Stand.objects.filter(pk=pending[0], event=event, active=True).first()
+    return voucher
 
 
 def round_up_minute(moment):
@@ -182,7 +189,7 @@ def register(request):
                     return sign_in_participant(request, p)
                 except IntegrityError:
                     form.add_error(None, "Não foi possível cadastrar. Confira os dados ou entre no passaporte, se já tiver um.")
-    return render(request, "passport/register.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
+    return render(request, "passport/register.html", {"form": form, "event": event, "pending": pending_voucher(request, event)})
 
 
 @never_cache
@@ -212,7 +219,7 @@ def recover(request):
                         p.save(update_fields=["session_version"])
                         return sign_in_participant(request, p, remember=form.cleaned_data["remember"])
         form.add_error(None, "Não foi possível entrar. Confira os dados ou aguarde e tente novamente.")
-    return render(request, "passport/recover.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
+    return render(request, "passport/recover.html", {"form": form, "event": event, "pending": pending_voucher(request, event)})
 
 
 @never_cache
@@ -249,6 +256,7 @@ def passport_page(request, p):
         "next_stamp_at": next_stamp_at(p) if done < len(stands) else None,
         "gap": interval_label(p.event.gap_seconds),
         "celebrate_stamp": any(row["new"] and row["visited"] for row in rows),
+        "pending": pending_voucher(request, p.event),
     })
 
 
@@ -260,6 +268,11 @@ def report_stamp(request, p, stand_id, code, *, notify_invalid=True):
         messages.error(request, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
         return "limited"
     result, seconds = record_stamp(p.pk, request.session.get("passport_version"), stand_id, code)
+    notify_stamp_result(request, p, stand_id, result, seconds, notify_invalid=notify_invalid)
+    return result
+
+
+def notify_stamp_result(request, p, stand_id, result, seconds, *, notify_invalid=True):
     if result == "ok":
         stamp = Stamp.objects.select_related("stand").get(passport=p, stand_id=stand_id)
         request.session["just_stamped"] = stand_id
@@ -275,9 +288,8 @@ def report_stamp(request, p, stand_id, code, *, notify_invalid=True):
         messages.warning(request, f"Aguarde o intervalo entre carimbos. Seu próximo carimbo fica disponível às {timezone.localtime(release):%H:%M}.")
     elif result == "session":
         messages.warning(request, SESSION_REPLACED_MESSAGE)
-    elif notify_invalid:
+    elif result == "invalid" and notify_invalid:
         messages.error(request, INVALID_CODE_MESSAGE)
-    return result
 
 
 @never_cache
@@ -307,8 +319,14 @@ def scan_stamp(request, stand_id, code):
         stand = Stand.objects.filter(pk=stand_id, event=event, active=True).first() if event else None
         if not stand:
             return render(request, "passport/unavailable.html", status=404)
-        request.session["pending_scan"] = [stand.pk, code]
-        return render(request, "passport/scan_entry.html", {"stand": stand})
+        if not limit("scan.voucher.ip", client_address(request), 600):
+            return render(request, "passport/scan_entry.html", {"stand": stand, "limited": True}, status=429)
+        token, voucher = issue_scan_voucher(stand, code)
+        if not token:
+            # QR vencido ou inválido não gera comprovante: orienta nova leitura.
+            return render(request, "passport/scan_entry.html", {"stand": stand, "expired": True})
+        request.session[VOUCHER_SESSION_KEY] = token
+        return render(request, "passport/scan_entry.html", {"stand": stand, "voucher": voucher})
     stand = get_object_or_404(Stand, pk=stand_id, event=p.event, active=True)
     if request.method == "POST":
         if report_stamp(request, p, stand.pk, code) == "invalid":
@@ -318,6 +336,41 @@ def scan_stamp(request, stand_id, code):
     return render(request, "passport/scan_confirm.html", {
         "stand": stand, "stamp": stamp, "expired": not stamp and not valid_station_code(stand, code),
         "next_stamp_at": next_stamp_at(p),
+    })
+
+
+VOUCHER_EXPIRED_MESSAGE = "A leitura do QR expirou. Leia o QR do estande novamente para registrar a visita."
+
+
+@never_cache
+@participant_required
+def scan_voucher_confirm(request, p):
+    """Confirma a visita a partir do comprovante gerado na leitura do QR antes do cadastro ou da entrada."""
+    token = request.session.get(VOUCHER_SESSION_KEY)
+    if not token:
+        return redirect("passport")
+    if request.method == "POST":
+        if not limit("stamp.passport", str(p.pk), 30):
+            messages.error(request, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
+            return redirect("passport")
+        result, seconds, voucher = record_stamp_with_voucher(p.pk, request.session.get("passport_version"), token)
+        if result != "wait":
+            # Em espera o comprovante continua válido até expirar; nos demais casos, encerra.
+            request.session.pop(VOUCHER_SESSION_KEY, None)
+        if result in ("expired", "used", "invalid"):
+            if result == "used":
+                return redirect("passport")
+            messages.error(request, VOUCHER_EXPIRED_MESSAGE if result == "expired" else INVALID_CODE_MESSAGE)
+            return redirect(reverse("manual_stamp") + "#leitor")
+        notify_stamp_result(request, p, voucher.stand_id, result, seconds)
+        return redirect("passport")
+    voucher = pending_voucher(request, p.event)
+    if not voucher:
+        request.session.pop(VOUCHER_SESSION_KEY, None)
+        return render(request, "passport/scan_voucher_expired.html", status=410)
+    stamp = Stamp.objects.filter(passport=p, stand=voucher.stand).first()
+    return render(request, "passport/scan_confirm.html", {
+        "stand": voucher.stand, "stamp": stamp, "expired": False, "voucher": voucher, "next_stamp_at": next_stamp_at(p),
     })
 
 
@@ -343,7 +396,7 @@ def staff_home(request):
     stands = assigned_stands(user, Stand.objects.filter(active=True, event__active=True))
     return render(request, "passport/staff_home.html", {
         "stands": stands, "prize_allowed": prize_allowed(user),
-        "can_search": can_search_passports(user), "is_manager": is_manager(user),
+        "can_search": can_search_passports(user), "is_manager": is_manager(user), "can_reset_pin": can_reset_pin(user),
     })
 
 
@@ -551,3 +604,88 @@ def manager_report(request):
     return render(request, "passport/manager_report.html", {
         "event": event, "metrics": metrics, "stands": stands,
     })
+
+
+# Redefinição de PIN pela equipe (permissão passport.reset_pin) -----------------------------------------------
+
+PIN_NONCE_KEY = "pin_reset_nonce"
+
+
+def find_passports_for_pin_reset(event, term):
+    """Só correspondência exata: celular completo normalizado ou identificador, com ou sem hífen. Nunca nome."""
+    base = Passport.objects.filter(event=event)
+    digits = re.sub(r"[^0-9]", "", term)
+    if re.fullmatch(r"\+?[0-9().\s-]+", term.strip()) and len(digits) >= 10:
+        try:
+            contact = normalize_contact(term)
+        except ValidationError:
+            return base.none(), "celular"
+        return base.filter(contact_digest__in=contact_digests(contact)).order_by("pk"), "celular"
+    public_id = normalize_public_id(term)
+    if public_id:
+        return base.filter(public_id=public_id), "identificador"
+    return base.none(), None
+
+
+@never_cache
+@pin_reset_only
+def pin_reset_search(request):
+    event = current_event()
+    if not event:
+        return render(request, "passport/unavailable.html", status=503)
+    # POST com CSRF: o celular pesquisado não vai para a URL, o histórico nem os logs de acesso.
+    form = PinResetSearchForm(request.POST if request.method == "POST" else None)
+    results, searched = [], False
+    if form.is_bound and form.is_valid():
+        if not limit("pin.search", str(request.user.pk), 30):
+            form.add_error(None, "Muitas consultas em pouco tempo. Aguarde alguns minutos.")
+        else:
+            queryset, kind = find_passports_for_pin_reset(event, form.cleaned_data["q"])
+            if kind is None:
+                form.add_error("q", "Informe o celular completo com DDD ou o identificador do passaporte (ex.: ABCD-2345).")
+            else:
+                searched = True
+                results = [{"p": p, "contact": mask_contact(p.contact)} for p in queryset[:5]]
+                # O termo pesquisado não é registrado.
+                audit(request.user, "pin.search", tipo=kind, resultados=len(results))
+    return render(request, "passport/staff_pin_search.html", {"form": form, "results": results, "searched": searched})
+
+
+@never_cache
+@pin_reset_only
+def pin_reset_confirm(request, public_id):
+    event = current_event()
+    raw = normalize_public_id(public_id)
+    if not event or not raw:
+        return render(request, "passport/unavailable.html", status=404)
+    p = get_object_or_404(Passport, event=event, public_id=raw)
+    allow_exception = can_skip_pin_check(request.user)
+    nonces = request.session.get(PIN_NONCE_KEY) or {}
+    form = PinResetForm(request.POST or None, allow_exception=allow_exception)
+    context = {"p": p, "contact": mask_contact(p.contact), "form": form, "allow_exception": allow_exception}
+    if request.method == "POST":
+        sent, expected = request.POST.get("nonce", ""), nonces.get(p.public_id)
+        if not expected or not secrets.compare_digest(sent, expected):
+            # Reenvio do mesmo formulário (voltar, atualizar, toque duplo): nada é redefinido.
+            return render(request, "passport/staff_pin_stale.html", context, status=409)
+        if form.is_valid():
+            nonces.pop(p.public_id, None)
+            request.session[PIN_NONCE_KEY] = nonces
+            if not limit("pin.reset.operator", str(request.user.pk), 20) or not limit("pin.reset.passport", str(p.pk), 3, 3600):
+                form.add_error(None, "Limite de redefinições atingido. Aguarde e, se necessário, acione a coordenação.")
+            else:
+                status, pin = reset_visitor_pin(
+                    p.pk, event.pk, request.user, form.cleaned_data["method"], form.cleaned_data.get("justification", ""),
+                )
+                if status == "ok":
+                    # Exibido uma única vez, nesta resposta sem cache; não vai para URL, mensagem, log nem auditoria.
+                    return render(request, "passport/staff_pin_done.html", {"p": p, "pin": pin})
+                if status == "recent":
+                    return render(request, "passport/staff_pin_stale.html", {**context, "recent": True}, status=409)
+                form.add_error(None, "Não foi possível redefinir. Confira se o evento está ativo.")
+    nonce = secrets.token_urlsafe(16)
+    nonces = {key: value for key, value in nonces.items() if key != p.public_id}
+    nonces[p.public_id] = nonce
+    request.session[PIN_NONCE_KEY] = dict(list(nonces.items())[-5:])
+    context["nonce"] = nonce
+    return render(request, "passport/staff_pin_confirm.html", context)

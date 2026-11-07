@@ -1,0 +1,36 @@
+{% extends "passport/base.html" %}
+{% block title %}Redefinir PIN{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Painel da equipe</a>
+<header class="page-heading narrow-heading"><div><p class="eyebrow">Atendimento</p><h1>Redefinir PIN de visitante</h1>
+  <p>Busque pelo celular completo com DDD ou pelo identificador do passaporte. Nome não é aceito: saber o nome ou o número não comprova identidade.</p></div></header>
+<div class="form-card">
+  {% include "passport/_error_summary.html" with form=form only %}
+  <form method="post" role="search" novalidate>{% csrf_token %}
+    <div class="form-field">{{ form.q.label_tag }}{{ form.q }}{{ form.q.errors }}</div>
+    <button class="button form-submit form-submit--registration" type="submit">Buscar passaporte</button>
+  </form>
+</div>
+{% if searched %}
+<section class="pin-results" aria-labelledby="resultados">
+  <h2 id="resultados" class="visually-hidden">Resultado</h2>
+  {% if results %}
+  <p class="result-meta" role="status">{{ results|length }} passaporte{{ results|length|pluralize }} encontrado{{ results|length|pluralize }}.</p>
+  <ul class="pin-result-list">
+    {% for r in results %}
+    <li class="form-card">
+      <dl class="detail-grid">
+        <div><dt>Nome</dt><dd>{{ r.p.name }}</dd></div>
+        <div><dt>Identificador</dt><dd class="id-code">{{ r.p.display_id }}</dd></div>
+        <div><dt>Celular</dt><dd>{{ r.contact }}</dd></div>
+      </dl>
+      <a class="button" href="{% url 'pin_reset_confirm' r.p.display_id %}">Conferir e redefinir<span class="visually-hidden"> o PIN de {{ r.p.name }}</span></a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="result-meta" role="status">Nenhum passaporte encontrado neste evento. Confira o número com DDD ou peça o identificador mostrado no passaporte.</p>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}

@@ -83,6 +83,13 @@ Resultados da versão inicial, preservados para histórico:
 - O WebKit não foi usado contra a imagem: os cookies são Secure fora do DEBUG e o teste local é em HTTP; o WebKit os recusa, o Chromium os aceita em 127.0.0.1. Não é falha do produto, que roda em HTTPS, mas a verificação WebKit da imagem fica pendente.
 - Não verificado: aparelhos reais, leitor de tela (o anúncio do resumo de erros depende do foco por autofocus), build da imagem Docker e servidor de produção.
 
+## Comprovante de leitura do QR (A3) e redefinição de PIN (A4) — 07/11/2026
+
+- 178 testes passaram no PostgreSQL isolado (25 novos em test_qr_pin), inclusive concorrência: o mesmo comprovante disputado por três consumos resulta em um carimbo e dois "já usado"; comprovantes de dois estandes do mesmo passaporte resultam em um carimbo e uma espera; três redefinições simultâneas do mesmo PIN resultam em uma redefinição, uma auditoria e session_version incrementado uma vez. Nove testes JavaScript passaram.
+- Cobertos também: QR inválido, vencido ou de estande inativo não gera comprovante; digest no banco e valor só na sessão; troca da chave de sessão no cadastro e na entrada; comprovante expirado, já usado, de outra sessão ou de outro evento; evento e estande revalidados no consumo; CSRF; permissões (anônimo, staff, gestor sem a permissão, permissão sem is_staff, grupo, superusuário); busca só no evento ativo, sem nome nem número parcial; celular mascarado; conferência obrigatória e exceção de gestor com justificativa; PIN ausente de log, auditoria, sessão, mensagem e URL; página sem cache; reenvio do formulário e repetição em menos de 1 minuto sem novo PIN; limites; sessão antiga do visitante encerrada com explicação e entrada com o novo PIN.
+- Chromium 151 e WebKit 26.5 headless, 320 e 390 px: QR lido antes do cadastro, código do QR vencido durante o cadastro e visita confirmada pelo comprovante; busca, conferência por teclado (rádios, caixa e envio por Enter), erro com resumo focado, PIN exibido uma vez, recarregar sem novo PIN (409), sem rolagem horizontal. Imagem Docker com config.settings_production (Chromium; WebKit recusa cookies Secure em HTTP local): web e banco saudáveis, estáticos com hash, X-App-Version presente, mesma jornada aprovada e log sem PIN.
+- Não verificado: aparelhos reais e leitor de tela; a conferência presencial é declarada pelo operador, sem verificação técnica; o tempo real de cadastro de visitantes não foi medido.
+
 ## Bloqueadores antes de qualquer evento
 
 1. Definir e testar carga esperada, picos e limites; executar testes de carga e estresse em ambiente semelhante ao real. Medir tempos, falhas, CPU, conexões e locks de banco. Um teste de duas requisições concorrentes não é teste de capacidade. O servidor runserver é apenas para desenvolvimento.
@@ -95,4 +102,4 @@ Resultados da versão inicial, preservados para histórico:
 
 ## Limitações funcionais conhecidas
 
-Telefone e e-mail não são verificados por SMS, WhatsApp ou e-mail. Conhecer o contato e o PIN é uma credencial de recuperação, não prova da identidade ou posse do telefone. Pessoas podem compartilhar contatos ou códigos; uma entrega por passaporte não garante uma entrega por pessoa. A perda do PIN exige um procedimento assistido que ainda não está implementado. Não existe uso offline. Nenhuma exportação de leads ou procedimento de exclusão/retenção foi implementado.
+Telefone e e-mail não são verificados por SMS, WhatsApp ou e-mail. Conhecer o contato e o PIN é uma credencial de recuperação, não prova da identidade ou posse do telefone. Pessoas podem compartilhar contatos ou códigos; uma entrega por passaporte não garante uma entrega por pessoa. A perda do PIN é tratada pela equipe autorizada, com conferência presencial do acesso ao número cadastrado; a conferência é declarada pelo operador e não é verificada tecnicamente. Não existe uso offline. Nenhuma exportação de leads ou procedimento de exclusão/retenção foi implementado.

@@ -5,6 +5,7 @@ from django.shortcuts import render
 
 PRIZE_GROUP = "Premiação"
 MANAGER_PERMISSION = "passport.manage_event"
+RESET_PIN_PERMISSION = "passport.reset_pin"
 
 
 def is_team(user):
@@ -19,6 +20,16 @@ def is_manager(user):
 def prize_allowed(user):
     # Regra anterior preservada: superusuário ou grupo Premiação. A permissão de gestor sozinha não libera entregas.
     return is_team(user) and (user.is_superuser or user.groups.filter(name=PRIZE_GROUP).exists())
+
+
+def can_reset_pin(user):
+    # Permissão própria, concedida por grupo ou usuário; superusuário a tem implicitamente. Não decorre de is_staff.
+    return is_team(user) and user.has_perm(RESET_PIN_PERMISSION)
+
+
+def can_skip_pin_check(user):
+    """Exceção à conferência presencial: só para quem é gestor e também pode redefinir PIN."""
+    return can_reset_pin(user) and is_manager(user)
 
 
 def assigned_stands(user, stands):
@@ -59,3 +70,4 @@ staff_only = _guard(None, "")
 manager_only = _guard(is_manager, "Acesso restrito à gestão do evento.")
 prize_only = _guard(prize_allowed, "Acesso restrito à equipe de premiação.")
 search_only = _guard(can_search_passports, "Sua conta não tem permissão para consultar passaportes.")
+pin_reset_only = _guard(can_reset_pin, "Sua conta não tem permissão para redefinir PIN de visitantes.")

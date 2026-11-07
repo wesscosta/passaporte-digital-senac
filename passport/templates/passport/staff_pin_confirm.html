@@ -1,0 +1,33 @@
+{% extends "passport/base.html" %}
+{% load static %}
+{% block title %}Conferir e redefinir PIN{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'pin_reset_search' %}">{% include "passport/_icon.html" with icon="back" only %} Nova busca</a>
+<div class="form-card">
+  <p class="eyebrow">Redefinir PIN</p>
+  <h1>Confira antes de redefinir</h1>
+  <dl class="detail-grid">
+    <div><dt>Nome</dt><dd>{{ p.name }}</dd></div>
+    <div><dt>Identificador</dt><dd class="id-code">{{ p.display_id }}</dd></div>
+    <div><dt>Celular cadastrado</dt><dd>{{ contact }}</dd></div>
+  </dl>
+  <p class="notice">Nome e número conhecidos não comprovam identidade. Redefina somente depois de conferir, com o visitante presente, que ele tem acesso ao celular cadastrado. Não use SMS ou WhatsApp automáticos: não há integração.</p>
+  {% include "passport/_error_summary.html" with form=form only %}
+  <form method="post" novalidate data-submit-once>
+    {% csrf_token %}<input type="hidden" name="nonce" value="{{ nonce }}">
+    <fieldset class="consent-group">
+      <legend>{{ form.method.label }}</legend>
+      {% for radio in form.method %}<div class="consent-row">{{ radio.tag }}<label for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>{% endfor %}
+      {{ form.method.errors }}
+    </fieldset>
+    <div class="consent-row">{{ form.confirmed }}<label for="{{ form.confirmed.id_for_label }}">{{ form.confirmed.label }}</label></div>
+    {{ form.confirmed.errors }}
+    {% if allow_exception %}
+    <div class="form-field">{{ form.justification.label_tag }}{{ form.justification }}{{ form.justification.errors }}<small class="helptext" id="{{ form.justification.auto_id }}_helptext">{{ form.justification.help_text }}</small></div>
+    {% endif %}
+    <p>Ao confirmar, um novo PIN de 6 dígitos será gerado e mostrado uma única vez. O passaporte será desconectado de todos os aparelhos.</p>
+    <button class="button form-submit form-submit--registration" type="submit">Gerar novo PIN</button>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% static 'passport/submit-once.js' %}" defer></script>{% endblock %}

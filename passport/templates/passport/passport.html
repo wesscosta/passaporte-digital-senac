@@ -13,6 +13,7 @@
   {% if total %}<div class="progress" role="progressbar" aria-label="Insígnias conquistadas" aria-valuenow="{{ done }}" aria-valuemin="0" aria-valuemax="{{ total }}"><div style="width:{% widthratio done total 100 %}%"></div></div>{% endif %}
 </section>
 {% if eligible and not redeemed %}{% include "passport/_reward.html" with first=True %}{% endif %}
+{% if pending %}<section class="pending-panel" aria-labelledby="visita-pendente"><h2 id="visita-pendente">Visita pendente: {{ pending.stand.name }}</h2><p>A leitura do QR vale até <time datetime="{{ pending.expires_at|date:'c' }}">{{ pending.expires_at|time:"H:i" }}</time>.</p><a class="button" href="{% url 'scan_voucher_confirm' %}">Confirmar visita</a></section>{% endif %}
 <a class="action-panel" href="{% url 'manual_stamp' %}" aria-labelledby="next-step" aria-describedby="visit-help{% if next_stamp_at %} next-stamp-message{% endif %}">
   <div><p class="eyebrow">Está em um estande?</p><h2 id="next-step">Registre sua visita</h2><p id="visit-help">Escaneie o QR code ou digite o código exibido no estande.</p>{% include "passport/_next_stamp.html" %}</div>
   <span class="action-prompt" aria-hidden="true">Continuar</span>

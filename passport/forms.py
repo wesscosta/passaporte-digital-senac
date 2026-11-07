@@ -104,3 +104,51 @@ class IntervalForm(forms.Form):
                                  widget=forms.NumberInput(attrs={"inputmode": "numeric", "step": "1", "aria-describedby": "minutes-help"}),
                                  error_messages={"min_value": "Use pelo menos 1 minuto.", "max_value": "Use no máximo 60 minutos.",
                                                  "invalid": "Informe um número inteiro de minutos.", "required": "Informe o intervalo em minutos."})
+
+
+class PinResetSearchForm(forms.Form):
+    q = forms.CharField(
+        label="Celular completo ou identificador do passaporte", min_length=8, max_length=30,
+        widget=forms.TextInput(attrs={"autocomplete": "off", "autocapitalize": "characters", "spellcheck": "false",
+                                      "enterkeyhint": "search"}),
+        error_messages={"min_length": "Informe o celular completo com DDD ou o identificador completo.",
+                        "required": "Informe o celular completo com DDD ou o identificador."},
+    )
+
+
+class PinResetForm(forms.Form):
+    """Conferência presencial obrigatória; a exceção é restrita a gestores autorizados e exige justificativa."""
+    METHOD_CHOICES = [
+        ("aparelho", "O visitante mostrou, no próprio celular, o número cadastrado (configurações do telefone ou perfil do WhatsApp)."),
+        ("ligacao", "Liguei ou enviei mensagem para o número cadastrado e a chamada ou mensagem chegou no celular que o visitante apresentou."),
+    ]
+    EXCEPTION = ("excecao_gestor", "Exceção de gestão: o visitante não consegue comprovar o acesso ao número agora.")
+    method = forms.ChoiceField(label="Como você conferiu o acesso ao número cadastrado?", widget=forms.RadioSelect,
+                               error_messages={"required": "Escolha como o acesso ao número foi conferido."})
+    confirmed = forms.BooleanField(
+        label="Confirmo que fiz essa conferência pessoalmente, agora, com o visitante presente.", required=False,
+    )
+    justification = forms.CharField(
+        label="Justificativa da exceção", required=False, max_length=300,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text="Obrigatória só na exceção de gestão. Não inclua número de documento nem dados de saúde.",
+    )
+
+    def __init__(self, *args, allow_exception=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allow_exception = allow_exception
+        self.fields["method"].choices = self.METHOD_CHOICES + ([self.EXCEPTION] if allow_exception else [])
+        if not allow_exception:
+            del self.fields["justification"]
+
+    def clean(self):
+        data = super().clean()
+        method = data.get("method")
+        if method == "excecao_gestor":
+            if len((data.get("justification") or "").strip()) < 20:
+                self.add_error("justification", "Descreva a justificativa da exceção em pelo menos 20 caracteres.")
+        elif method and not data.get("confirmed"):
+            self.add_error("confirmed", "Confirme que a conferência foi feita pessoalmente com o visitante presente.")
+        if method != "excecao_gestor":
+            data["justification"] = ""
+        return data

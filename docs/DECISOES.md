@@ -32,6 +32,12 @@ Decisões de 07/11 (correções da auditoria de UX):
 - Sem estande obrigatório ativo, o visitante é informado de que a retirada ainda não foi liberada e a gestão recebe alerta. A regra de elegibilidade não mudou.
 - Páginas 403 da equipe passam a ter explicação e navegação; a gestão não indica o /admin/ a quem não tem permissão nele.
 
+Decisões de 07/11 (A3 e A4):
+
+- QR lido sem sessão: o código é validado na leitura e vira um comprovante de 5 minutos no servidor. A confirmação continua explícita (um toque) depois do cadastro ou da entrada. QR não prova presença; o comprovante só estende o prazo da leitura válida.
+- Comprovante em espera não é consumido; duplicidade encerra o comprovante sem novo carimbo. Visitante já conectado mantém o fluxo anterior, com o código do QR.
+- Redefinição de PIN pela equipe com permissão própria (passport.reset_pin), busca exata por celular ou identificador, conferência presencial declarada pelo operador e exceção restrita a gestor autorizado com justificativa. A busca usa POST para que o celular não vá para URL e logs de acesso. A ação equivalente do /admin/, que exibia o PIN em mensagem, foi retirada.
+
 ## Arquitetura em avaliação
 
 Monólito Django com HTML renderizado no servidor, PostgreSQL, CSS local e código JavaScript mínimo. A escolha busca simplicidade operacional e páginas pequenas, mas **não significa que Python ou Django sejam intrinsecamente a melhor opção para qualquer carga**. A capacidade ainda precisa ser medida em infraestrutura semelhante à produção, com carga e critérios acordados. Não foi feita comparação experimental com Node.js, Go ou outras alternativas.

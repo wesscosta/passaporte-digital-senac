@@ -1,0 +1,20 @@
+{% extends "passport/base.html" %}
+{% block title %}Novo PIN gerado{% endblock %}
+{% block content %}
+<div class="form-card">
+  <p class="eyebrow">Redefinir PIN</p>
+  <h1>Novo PIN gerado</h1>
+  <p>Passaporte <strong class="id-code">{{ p.display_id }}</strong> · {{ p.name }}</p>
+  <div class="pin-reveal">
+    <span class="pin-reveal-label">Novo PIN</span>
+    <strong class="pin-reveal-value" aria-hidden="true">{{ pin }}</strong>
+    <span class="visually-hidden">{{ pin|make_list|join:" " }}</span>
+  </div>
+  <ul class="plain-list">
+    <li>Mostre ou diga o PIN somente ao visitante. Ele não será exibido de novo nesta tela nem em outro lugar.</li>
+    <li>Peça que o visitante entre no passaporte agora, com o celular cadastrado e este PIN.</li>
+    <li>Não fotografe, não anote e não envie o PIN por mensagem.</li>
+  </ul>
+  <div class="actions"><a class="button" href="{% url 'pin_reset_search' %}">Concluir</a></div>
+</div>
+{% endblock %}

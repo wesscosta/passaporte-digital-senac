@@ -30,6 +30,8 @@ O PostgreSQL local fica em 127.0.0.1:55432, em volume Docker do projeto. As cred
 - Recuperação por contato + PIN, com invalidação de sessões anteriores do participante. O PIN não comprova posse do número nem identidade.
 - Código e QR temporários por estande. A equipe precisa estar autenticada e atribuída ao estande.
 - Leitura do QR pelo navegador com câmera autorizada; digitação de código e câmera nativa do celular como alternativas. O decodificador local é carregado sob demanda.
+- QR lido antes do cadastro ou da entrada: o servidor valida o código na leitura e guarda um comprovante de 5 minutos, vinculado à sessão (o valor fica só na sessão; o banco guarda o digest), ao evento e ao estande. Ele sobrevive à troca da chave de sessão no cadastro ou entrada e é consumido uma única vez, na mesma transação do carimbo, que revalida evento, estande, intervalo e duplicidade. Em espera, o comprovante continua válido até expirar. QR inválido ou vencido não gera comprovante.
+- Redefinição de PIN na Área da Equipe (/equipe/pin/), com permissão própria e conferência presencial; ver abaixo.
 - Carimbo único por estande, com intervalo entre registros e validação transacional no PostgreSQL.
 - Setor de premiação separado: geração de código e QR de retirada, consulta da equipe e confirmação explícita, uma entrega por passaporte.
 - Identificador de passaporte (ex.: ABCD-2345), único no banco, exibido ao visitante e usado no atendimento. Não é senha nem prova de identidade.
@@ -76,6 +78,17 @@ Níveis de acesso (todos exigem a propriedade de equipe, is_staff):
 - Staff de estande: exibe QR e código dos estandes atribuídos e consulta passaportes.
 - Premiação: grupo Premiação; consulta passaportes e confirma entregas pelo código de retirada.
 - Gestão: permissão "Pode gerenciar o evento ativo e o intervalo entre carimbos" (passport.manage_event). O superusuário a recebe implicitamente. Como is_superuser concede todas as permissões do Django, inclusive no /admin/, é mais seguro criar um grupo de gestão só com essa permissão e conceder superusuário apenas a quem administra o sistema. A permissão de gestão sozinha não libera a premiação. Nenhuma conta é promovida automaticamente.
+- Redefinição de PIN: permissão "Pode redefinir o PIN de visitantes após conferência presencial" (passport.reset_pin). Não decorre de is_staff nem da gestão; o superusuário a tem implicitamente.
+
+### Como conceder a redefinição de PIN
+
+1. No /admin/, em Grupos, crie um grupo (por exemplo, "Redefinição de PIN") com somente a permissão passport | evento | "Pode redefinir o PIN de visitantes após conferência presencial".
+2. Adicione ao grupo apenas as pessoas do atendimento que farão essa conferência. A conta precisa ter a propriedade de equipe (is_staff); não precisa de nenhuma outra permissão no /admin/.
+3. A opção "Redefinir PIN" aparece no painel da equipe. A busca aceita só o celular completo ou o identificador do passaporte (com ou sem hífen) do evento ativo, nunca o nome.
+4. O operador registra como conferiu, com o visitante presente, o acesso ao número cadastrado (número exibido no próprio aparelho, ou ligação ou mensagem de teste recebida nele). Nome e número conhecidos não comprovam identidade. Não há SMS nem WhatsApp automáticos.
+5. Exceção sem essa conferência: só para quem é gestor (passport.manage_event) e também tem passport.reset_pin, com justificativa de pelo menos 20 caracteres.
+6. O PIN de 6 dígitos é aleatório, gravado só como hash, e mostrado uma única vez numa página sem cache. Não vai para URL, mensagem, log nem auditoria. As sessões do visitante em outros aparelhos são encerradas. A auditoria guarda operador, passaporte, horário, método e, na exceção, a justificativa.
+7. Limites: 30 buscas por operador e 20 redefinições por operador a cada 10 minutos; 3 redefinições por passaporte por hora; uma segunda redefinição do mesmo passaporte em menos de 1 minuto é recusada (proteção contra reenvio). A ação de redefinir PIN no /admin/ foi retirada.
 
 O cadastro local sintético anterior, ui.smoke@example.invalid, é um registro legado e não foi excluído. Novos cadastros aceitam apenas celular; a recuperação mantém compatibilidade com os contatos anteriores.
 

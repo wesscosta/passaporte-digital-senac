@@ -356,3 +356,17 @@ input:not([type=checkbox]):focus-visible,select:focus-visible{border-color:var(-
 .error-summary a{color:#912c23;font-weight:700}
 .error-summary p{margin:10px 0 0}
 .ticket-expiry{margin:8px 0 6px;font-weight:700}
+
+/* Visita pendente após leitura do QR e redefinição de PIN pela equipe. */
+.pending-panel{margin:22px 0 0;padding:20px 22px;background:#fff4d4;border-left:4px solid #9c6813;border-radius:12px}
+.pending-panel h2{font-size:1.3rem;margin:0 0 6px}
+.pending-panel p{margin:0 0 14px}
+.pending-panel .button{width:100%}
+.pin-help{margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
+.pin-help h2{font-size:1.2rem;margin:0 0 8px}
+.pin-result-list{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:14px}
+.pin-result-list .button{width:100%;margin-top:12px}
+.pin-reveal{display:flex;flex-direction:column;align-items:center;gap:6px;margin:20px 0;padding:22px 16px;background:#fff;border:2px solid var(--navy-deep);border-radius:14px}
+.pin-reveal-label{font-weight:700}
+.pin-reveal-value{font-size:clamp(2.4rem,12vw,3.4rem);line-height:1;letter-spacing:.18em;font-variant-numeric:tabular-nums;color:var(--navy-deep)}
+.button[aria-disabled=true]{opacity:.7;cursor:progress}

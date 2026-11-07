@@ -5,9 +5,10 @@
   <div><p class="eyebrow">Área da equipe</p><h1>Painel da equipe</h1><p>Olá, {{ request.user.get_username }}. Escolha um estande para exibir o QR code aos visitantes.</p></div>
   <span class="role-badge"><span class="status-dot" aria-hidden="true"></span> Acesso autorizado</span>
 </header>
-{% if can_search or is_manager %}
+{% if can_search or is_manager or can_reset_pin %}
 <div class="staff-tools">
   {% if can_search %}<section class="tool-card" aria-labelledby="tool-search"><h2 id="tool-search">Consultar passaportes</h2><p>Pesquise por nome, celular ou identificador para orientar o visitante.</p><a class="button secondary" href="{% url 'passport_search' %}">Pesquisar passaportes</a></section>{% endif %}
+  {% if can_reset_pin %}<section class="tool-card" aria-labelledby="tool-pin"><h2 id="tool-pin">Redefinir PIN</h2><p>Para o visitante que esqueceu o PIN, após conferir pessoalmente o acesso ao celular cadastrado.</p><a class="button secondary" href="{% url 'pin_reset_search' %}">Redefinir PIN</a></section>{% endif %}
   {% if is_manager %}<section class="tool-card" aria-labelledby="tool-manager"><h2 id="tool-manager">Gestão do evento</h2><p>Consulte e ajuste o intervalo entre carimbos do evento ativo.</p><a class="button secondary" href="{% url 'manager_home' %}">Abrir gestão</a></section>{% endif %}
 </div>
 {% endif %}

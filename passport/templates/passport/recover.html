@@ -5,10 +5,10 @@
 <div class="form-card">
   <p class="eyebrow">Seu passaporte continua aqui</p><h1>Entrar no passaporte</h1>
   <p>Use o contato e o PIN do cadastro. Ao entrar aqui, o passaporte deixa de ficar aberto em outros aparelhos.</p>
-  {% if pending_stand %}<p class="pending-visit">Ao entrar, você confirma a visita a <strong>{{ pending_stand.name }}</strong>.</p>{% endif %}
+  {% if pending %}<p class="pending-visit">Ao entrar, você confirma a visita a <strong>{{ pending.stand.name }}</strong>. A leitura vale até <time datetime="{{ pending.expires_at|date:'c' }}">{{ pending.expires_at|time:"H:i" }}</time>.</p>{% endif %}
   <form method="post" novalidate>{% csrf_token %}{{ form.as_p }}<button class="button form-submit" type="submit">Entrar no passaporte</button></form>
   <p class="form-footer">Ainda não se cadastrou? <a href="{% url 'register' %}">Criar passaporte</a></p>
-  <p>Esqueceu o PIN? Procure a equipe de organização. Tenha o número do passaporte em mãos, se souber. A organização vai confirmar seus dados e definir um novo PIN.</p>
+  <section class="pin-help" aria-labelledby="esqueceu-pin"><h2 id="esqueceu-pin">Esqueceu o PIN?</h2><p>Procure a equipe do evento com o <strong>celular cadastrado em mãos</strong>. A equipe vai conferir, na sua frente, que você tem acesso a esse número e gerar um novo PIN. Saber o nome ou o número não basta.</p><p>Ao receber o novo PIN, o passaporte deixa de ficar aberto em outros aparelhos.</p></section>
 </div>
 {% endblock %}
 

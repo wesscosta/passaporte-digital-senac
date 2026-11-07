@@ -6,7 +6,7 @@ from django.views.decorators.cache import never_cache
 # Apenas páginas que aceitam GET podem ser reabertas depois de um POST recusado.
 _RETRY_VIEWS = {
     "register", "recover", "manual_stamp", "scan_stamp", "staff_login",
-    "manager_home", "prize_lookup", "prize_review",
+    "manager_home", "prize_lookup", "prize_review", "scan_voucher_confirm", "pin_reset_confirm", "pin_reset_search",
 }
 
 

@@ -6,7 +6,7 @@
 <div class="form-card">
   <p class="eyebrow">Vamos começar</p><h1>Crie seu passaporte</h1>
   <p>Informe seu celular com DDD e escolha um PIN de seis números. Guarde os dois para entrar de novo no passaporte.</p>
-  {% if pending_stand %}<p class="pending-visit">Depois do cadastro, você confirma a visita a <strong>{{ pending_stand.name }}</strong>.</p>{% endif %}
+  {% if pending %}<p class="pending-visit">Depois do cadastro, você confirma a visita a <strong>{{ pending.stand.name }}</strong>. A leitura vale até <time datetime="{{ pending.expires_at|date:'c' }}">{{ pending.expires_at|time:"H:i" }}</time>.</p>{% endif %}
   <p class="notice">O PIN permite entrar de novo no passaporte, mas não confirma a posse do telefone. Política de privacidade ainda pendente de aprovação.</p>
   <p class="testing-note">Ambiente de teste: não informe dados reais.</p>
   {% include "passport/_error_summary.html" with form=form pin_cleared=True only %}

@@ -1,0 +1,13 @@
+{% extends "passport/base.html" %}
+{% block title %}Leitura expirada{% endblock %}
+{% block content %}
+<div class="form-card">
+  <p class="eyebrow">Registrar visita</p>
+  <h1>A leitura do QR expirou</h1>
+  <p>A leitura guardada vale por 5 minutos. Leia de novo o QR que aparece agora na tela do estande ou digite o código mostrado.</p>
+  <div class="actions">
+    <a class="button" href="{% url 'manual_stamp' %}#leitor">Ler o QR novamente</a>
+    <a class="button secondary" href="{% url 'manual_stamp' %}#codigo">Digitar código</a>
+  </div>
+</div>
+{% endblock %}

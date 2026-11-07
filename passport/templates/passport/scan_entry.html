@@ -4,11 +4,17 @@
 <div class="form-card scan-entry">
   {% include "passport/_area_icon.html" with stand=stand only %}
   <h1>Visita a {{ stand.name }}</h1>
-  <p>Para guardar este carimbo, crie seu passaporte ou entre no seu. Em seguida, é só confirmar a visita.</p>
+  {% if expired %}
+  <p class="notice" role="status">Este QR já mudou e não foi guardado. Entre ou crie seu passaporte e, em seguida, leia o QR que aparece agora na tela do estande.</p>
+  {% elif limited %}
+  <p class="notice" role="status">Muitas leituras nesta rede em pouco tempo. Aguarde alguns minutos e leia o QR de novo.</p>
+  {% else %}
+  <p>Sua leitura foi guardada. Crie seu passaporte ou entre no seu e, em seguida, confirme a visita.</p>
+  <p class="pending-visit">A leitura vale até <strong><time datetime="{{ voucher.expires_at|date:'c' }}">{{ voucher.expires_at|time:"H:i" }}</time></strong>. Não é preciso ler o QR de novo até lá.</p>
+  {% endif %}
   <div class="actions">
     <a class="button" href="{% url 'register' %}">Criar passaporte</a>
     <a class="button secondary" href="{% url 'recover' %}">Entrar no passaporte</a>
   </div>
-  <p class="scanner-hint">O código do estande muda a cada minuto. Se ele expirar enquanto você se cadastra, leia o QR de novo.</p>
 </div>
 {% endblock %}

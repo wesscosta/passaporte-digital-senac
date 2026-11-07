@@ -1,0 +1,15 @@
+{% extends "passport/base.html" %}
+{% block title %}Redefinição não repetida{% endblock %}
+{% block content %}
+<div class="form-card">
+  <p class="eyebrow">Redefinir PIN</p>
+  {% if recent %}
+  <h1>O PIN acabou de ser redefinido</h1>
+  <p>Este passaporte teve o PIN redefinido há menos de um minuto, por isso nada foi alterado agora. Se o novo PIN não chegou ao visitante, aguarde um minuto e faça uma nova redefinição.</p>
+  {% else %}
+  <h1>Este envio já foi processado</h1>
+  <p>O formulário foi reenviado ou expirou, por isso nada foi alterado. Abra a conferência de novo se precisar redefinir o PIN.</p>
+  {% endif %}
+  <div class="actions"><a class="button" href="{% url 'pin_reset_confirm' p.display_id %}">Abrir a conferência de novo</a><a class="button secondary" href="{% url 'pin_reset_search' %}">Nova busca</a></div>
+</div>
+{% endblock %}

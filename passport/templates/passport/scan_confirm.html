@@ -1,4 +1,5 @@
 {% extends "passport/base.html" %}
+{% load static %}
 {% block title %}Confirmar visita{% endblock %}
 {% block content %}
 <a class="back" href="{% url 'passport' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao passaporte</a>
@@ -14,9 +15,11 @@
     <a class="button secondary" href="{% url 'manual_stamp' %}#codigo">Digitar código</a>
   </div>
   {% else %}
-  <p>Confirme sua visita para registrar o carimbo. O código pode expirar após a atualização do estande.</p>
+  {% if voucher %}<p>Confirme sua visita para registrar o carimbo. A leitura do QR vale até <strong><time datetime="{{ voucher.expires_at|date:'c' }}">{{ voucher.expires_at|time:"H:i" }}</time></strong>.</p>
+  {% else %}<p>Confirme sua visita para registrar o carimbo. O código pode expirar após a atualização do estande.</p>{% endif %}
   {% include "passport/_next_stamp.html" %}
-  <form method="post">{% csrf_token %}<button class="button" type="submit">Confirmar carimbo {% include "passport/_icon.html" with icon="check" only %}</button></form>
+  <form method="post" data-submit-once>{% csrf_token %}<button class="button" type="submit">Confirmar carimbo {% include "passport/_icon.html" with icon="check" only %}</button></form>
   {% endif %}
 </div>
 {% endblock %}
+{% block scripts %}<script src="{% static 'passport/submit-once.js' %}" defer></script>{% endblock %}

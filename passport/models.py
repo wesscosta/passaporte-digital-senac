@@ -12,7 +12,11 @@ class Event(models.Model):
 
     class Meta:
         # Permissão do gestor: o superusuário a recebe implicitamente; um grupo restrito pode recebê-la sem ser superusuário.
-        permissions = [("manage_event", "Pode gerenciar o evento ativo e o intervalo entre carimbos")]
+        permissions = [
+            ("manage_event", "Pode gerenciar o evento ativo e o intervalo entre carimbos"),
+            # Concedida explicitamente (grupo ou usuário); não decorre de is_staff nem da gestão.
+            ("reset_pin", "Pode redefinir o PIN de visitantes após conferência presencial"),
+        ]
 
     def __str__(self):
         return self.name
@@ -100,6 +104,21 @@ class Stamp(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["passport", "stand"], name="unique_stamp_per_stand")]
+
+
+class ScanVoucher(models.Model):
+    """Comprovante de leitura válida do QR de um estande, emitido antes do cadastro ou da entrada.
+
+    O valor bruto fica só na sessão do navegador; o banco guarda o digest. Vale por poucos minutos e é
+    consumido uma única vez, na mesma transação do carimbo.
+    """
+    token_digest = models.CharField(max_length=64, unique=True)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="+")
+    stand = models.ForeignKey(Stand, on_delete=models.CASCADE, related_name="+")
+    created_at = models.DateTimeField()
+    expires_at = models.DateTimeField(db_index=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    consumed_by = models.ForeignKey("Passport", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
 
 class RateBucket(models.Model):

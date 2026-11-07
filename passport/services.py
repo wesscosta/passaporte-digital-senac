@@ -10,7 +10,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
-from .models import AuditEntry, Event, Passport, RateBucket, Redemption, RedemptionTicket, Stamp, Stand
+from .models import AuditEntry, Event, Passport, RateBucket, Redemption, RedemptionTicket, ScanVoucher, Stamp, Stand
 
 CONSENT_VERSION = "marketing-v2-celular-provisoria"
 IMAGE_CONSENT_VERSION = "imagem-v1-circuito-provisoria"
@@ -163,17 +163,122 @@ def record_stamp(passport_id, version, stand_id, code, now=None):
         stand = Stand.objects.filter(pk=stand_id, event=p.event, active=True).first()
         if not p.event.active or not stand or not valid_station_code(stand, code, now):
             return "invalid", 0
-        if Stamp.objects.filter(passport=p, stand=stand).exists():
-            return "duplicate", 0
-        ready_at = stamp_ready_at(p)
-        if ready_at:
-            remaining = (ready_at - now).total_seconds()
-            if remaining > 0:
-                return "wait", int(remaining + 0.999)
-        Stamp.objects.create(passport=p, stand=stand, created_at=now)
-        p.last_stamp_at = now
-        p.save(update_fields=["last_stamp_at"])
-        return "ok", 0
+        return _stamp_locked(p, stand, now)
+
+
+def _stamp_locked(p, stand, now):
+    """Regras de duplicidade e intervalo; exige o passaporte bloqueado na transação corrente."""
+    if Stamp.objects.filter(passport=p, stand=stand).exists():
+        return "duplicate", 0
+    ready_at = stamp_ready_at(p)
+    if ready_at:
+        remaining = (ready_at - now).total_seconds()
+        if remaining > 0:
+            return "wait", int(remaining + 0.999)
+    Stamp.objects.create(passport=p, stand=stand, created_at=now)
+    p.last_stamp_at = now
+    p.save(update_fields=["last_stamp_at"])
+    return "ok", 0
+
+
+VOUCHER_SECONDS = 300
+
+
+def issue_scan_voucher(stand, code, now=None):
+    """Comprovante para um QR válido no momento da leitura. Devolve (token, voucher) ou (None, None).
+
+    QR inválido ou expirado, estande inativo ou evento inativo não geram comprovante.
+    """
+    now = now or timezone.now()
+    if not stand.active or not stand.event.active or not valid_station_code(stand, code, now):
+        return None, None
+    # Limpeza oportunista: comprovantes vencidos há mais de um dia não servem para nada.
+    ScanVoucher.objects.filter(expires_at__lt=now - timedelta(days=1)).delete()
+    token = secrets.token_urlsafe(32)
+    voucher = ScanVoucher.objects.create(
+        token_digest=digest("scan_voucher", token), event=stand.event, stand=stand,
+        created_at=now, expires_at=now + timedelta(seconds=VOUCHER_SECONDS),
+    )
+    return token, voucher
+
+
+def find_scan_voucher(token, now=None):
+    """Comprovante ainda utilizável (não consumido, no prazo, evento e estande ativos) ou None."""
+    if not token:
+        return None
+    now = now or timezone.now()
+    return ScanVoucher.objects.select_related("stand", "event").filter(
+        token_digest=digest("scan_voucher", token), consumed_at__isnull=True, expires_at__gt=now,
+        event__active=True, stand__active=True,
+    ).first()
+
+
+def record_stamp_with_voucher(passport_id, version, token, now=None):
+    """Consome o comprovante uma única vez, na mesma transação do carimbo.
+
+    Resultados: ok, wait (comprovante mantido até expirar), duplicate (comprovante encerrado), expired,
+    used, invalid, session. Ordem de bloqueio: comprovante e depois passaporte.
+    """
+    now = now or timezone.now()
+    with transaction.atomic():
+        voucher = ScanVoucher.objects.select_for_update().filter(token_digest=digest("scan_voucher", token or "")).first()
+        if not voucher:
+            return "invalid", 0, None
+        if voucher.consumed_at:
+            return "used", 0, voucher
+        if voucher.expires_at <= now:
+            return "expired", 0, voucher
+        p = Passport.objects.select_for_update().select_related("event").get(pk=passport_id)
+        if p.session_version != version:
+            return "session", 0, voucher
+        stand = Stand.objects.filter(pk=voucher.stand_id, event=p.event, active=True).first()
+        if not p.event.active or p.event_id != voucher.event_id or not stand:
+            return "invalid", 0, voucher
+        result, seconds = _stamp_locked(p, stand, now)
+        if result in ("ok", "duplicate"):
+            voucher.consumed_at, voucher.consumed_by = now, p
+            voucher.save(update_fields=["consumed_at", "consumed_by"])
+        return result, seconds, voucher
+
+
+PIN_RESET_METHODS = {
+    "aparelho": "Visitante mostrou, no próprio aparelho, o número cadastrado",
+    "ligacao": "Ligação ou mensagem de teste para o número cadastrado recebida no aparelho do visitante",
+    "excecao_gestor": "Exceção autorizada por gestor, com justificativa",
+}
+# Reenvio acidental (toque duplo, voltar e reenviar): não gera um segundo PIN logo em seguida.
+PIN_RESET_COOLDOWN_SECONDS = 60
+
+
+def reset_visitor_pin(passport_id, event_id, operator, method, justification=""):
+    """Gera um PIN aleatório de 6 dígitos, grava só o hash e invalida as sessões do visitante.
+
+    Devolve (status, pin): ("ok", pin), ("recent", None) ou ("invalid", None). O PIN nunca é registrado
+    em log ou auditoria.
+    """
+    if method not in PIN_RESET_METHODS:
+        return "invalid", None
+    pin = f"{secrets.randbelow(1_000_000):06d}"
+    pin_hash = make_password(pin)  # custo do hash fora do bloqueio
+    with transaction.atomic():
+        p = Passport.objects.select_for_update().filter(pk=passport_id, event_id=event_id, event__active=True).first()
+        if not p:
+            return "invalid", None
+        recent = AuditEntry.objects.filter(
+            action="visitor.pin_reset", target=p.public_id,
+            created_at__gt=timezone.now() - timedelta(seconds=PIN_RESET_COOLDOWN_SECONDS),
+        ).exists()
+        if recent:
+            return "recent", None
+        p.pin_hash = pin_hash
+        p.session_version += 1
+        p.save(update_fields=["pin_hash", "session_version"])
+        detail = {"metodo": method}
+        if justification:
+            detail["justificativa"] = justification[:300]
+        audit(operator, "visitor.pin_reset", p.public_id, **detail)
+    security_log.info("PIN de visitante redefinido: passaporte_id=%s por_id=%s metodo=%s", p.pk, operator.pk, method)
+    return "ok", pin
 
 
 def issue_ticket(passport_id, version):

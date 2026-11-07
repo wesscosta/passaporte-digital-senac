@@ -176,8 +176,9 @@ class PassportTests(TestCase):
             "name": "Pessoa", "contact": "85999998888", "pin": "123456", "pin_confirm": "123456",
             "interest_segment": "tecnologia",
         })
-        self.assertRedirects(response, url)
-        self.assertContains(self.client.get(url), "Confirmar carimbo")
+        # A visita volta pelo comprovante emitido na leitura, não pelo código do QR (que muda a cada minuto).
+        self.assertRedirects(response, reverse("scan_voucher_confirm"))
+        self.assertContains(self.client.get(reverse("scan_voucher_confirm")), "Confirmar carimbo")
         self.assertEqual(Stamp.objects.count(), 0)
 
     def test_scan_without_session_for_unknown_stand_is_unavailable(self):
