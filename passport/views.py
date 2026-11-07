@@ -566,6 +566,10 @@ def manager_report(request):
     if not event:
         return render(request, "passport/manager_report.html", {"event": None}, status=503)
 
+    if request.GET.get("formato") in ("participantes", "visitas"):
+        from .exports import detailed_report
+        return detailed_report(request, event, request.GET["formato"])
+
     stands = list(event.stands.annotate(
         visits=Count("stamps", filter=Q(stamps__passport__event=event)),
     ))

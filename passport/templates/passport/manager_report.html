@@ -4,7 +4,7 @@
 <a class="back" href="{% url 'manager_home' %}">Voltar à gestão do evento</a>
 <header class="page-heading"><div><p class="eyebrow">Gestão</p><h1>Relatório do evento</h1>{% if event %}<p>{{ event.name }}</p>{% endif %}</div></header>
 {% if event %}
-<div class="actions"><a class="button" href="?formato=csv">Exportar CSV</a></div>
+<div class="actions"><a class="button" href="?formato=csv">Exportar resumo</a> <a class="button" href="?formato=participantes">Exportar participantes</a> <a class="button" href="?formato=visitas">Exportar visitas</a></div>
 <div class="manager-grid">
   <section class="tool-card" aria-labelledby="resumo">
     <h2 id="resumo">Resumo</h2>

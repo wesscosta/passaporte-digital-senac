@@ -115,3 +115,11 @@ O leitor alternativo usa jsQR 1.4.0 (Apache-2.0); o arquivo e a licença ficam e
 - .claude/skills/: cópias de instruções de UI/UX e validação em escopo do projeto; ambas estão em validação.
 
 Não existe homologação jurídica, de acessibilidade, de segurança, de carga nem de operação de evento.
+
+## Perfis operacionais e exportação detalhada — 07/11/2026
+
+O comando `python manage.py configure_event_team` configura as contas dedicadas staff_local, premiacao_suporte e gestor_local. Exige exatamente um evento ativo e a migração de reset_pin. Staff recebe os estandes ativos; premiação/suporte recebe o grupo Premiação e reset_pin; gestor recebe manage_event. Não concede superusuário. Substitui grupos/permissões das três contas operacionais; recusa contas já superusuárias e grupo Premiação com permissões adicionais para permitir revisão. Não altera outras contas.
+
+Senhas aleatórias são exibidas apenas para contas novas. Para redefini-las explicitamente, use --reset-passwords. Execute em terminal privado, sem gravação de saída. Visitantes usam cadastro individual e PIN, não conta de equipe compartilhada.
+
+A gestão exporta CSVs de participantes e visitas do evento ativo. Inclui dados cadastrais, escolhas de autorização com versão/data, carimbos e situação da retirada. Os CSVs contêm evento, data de geração com fuso e proteção contra fórmulas; não incluem PIN, hashes, tokens ou sessões. Cada download gera report.export na auditoria. Guardar o arquivo com acesso restrito. O relatório agregado permanece disponível.
