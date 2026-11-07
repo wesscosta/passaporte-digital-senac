@@ -4,7 +4,7 @@
 <a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Painel da equipe</a>
 <header class="page-heading"><div><p class="eyebrow">Gestão</p><h1>Gestão do evento</h1>{% if event %}<p>{{ event.name }}</p>{% endif %}</div></header>
 {% if not event %}
-<p class="notice">Não há exatamente um evento ativo. Ajuste os eventos no administrativo antes de alterar o intervalo.</p>
+<p class="notice">Não há exatamente um evento ativo, por isso o intervalo não pode ser alterado aqui. Peça ao administrador do sistema que deixe somente o evento atual ativo.</p>{% if perms.passport.change_event %}<p><a href="{% url 'admin:passport_event_changelist' %}">Abrir eventos no administrativo</a></p>{% endif %}
 {% else %}
 <div class="actions"><a class="button secondary" href="{% url 'manager_report' %}">Ver relatório</a></div>
 <div class="manager-grid">
@@ -32,7 +32,9 @@
   </section>
 </div>
 <section aria-labelledby="estandes" class="manager-stands">
-  <div class="section-heading compact"><div><h2 id="estandes">Estandes e insígnias</h2></div><p>{{ stands|length }} estande{{ stands|length|pluralize }} ativo{{ stands|length|pluralize }}. A quantidade é configurada no administrativo.</p></div>
+  <div class="section-heading compact"><div><h2 id="estandes">Estandes e insígnias</h2></div><p>{{ stands|length }} estande{{ stands|length|pluralize }} ativo{{ stands|length|pluralize }}, {{ required_total }} obrigatório{{ required_total|pluralize }} para a premiação. Estandes, obrigatoriedade e equipe de cada estande são configurados pelo administrador do sistema.{% if perms.passport.change_stand %} <a href="{% url 'admin:passport_stand_changelist' %}">Abrir estandes no administrativo</a>.{% endif %}</p></div>
+  {% if not stands %}<p class="notice" role="status">Nenhum estande ativo: visitantes não conseguem registrar visitas. Peça ao administrador do sistema que ative os estandes do evento.</p>
+  {% elif not required_total %}<p class="notice" role="status">Nenhum estande ativo é obrigatório: ninguém conseguirá gerar o código de retirada do prêmio. Peça ao administrador do sistema que marque os estandes exigidos para a premiação.</p>{% endif %}
   {% if unmatched %}<p class="notice">Sem área identificada pelo nome, com insígnia neutra: {% for s in unmatched %}{{ s.name }}{% if not forloop.last %}, {% endif %}{% endfor %}. Confirme a área desses estandes com a organização.</p>{% endif %}
 </section>
 {% endif %}

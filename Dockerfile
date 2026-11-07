@@ -7,7 +7,11 @@ RUN pip install --no-cache-dir -r requirements.prod.txt \
 COPY config ./config
 COPY passport ./passport
 COPY manage.py ./
-RUN DJANGO_DEBUG=1 python manage.py collectstatic --noinput
+# As configurações de produção geram os nomes com hash e o manifesto usados em execução.
+RUN DJANGO_DEBUG=1 DJANGO_SETTINGS_MODULE=config.settings_production python manage.py collectstatic --noinput
 RUN chmod -R a+rX /app
+ARG APP_COMMIT=""
+ENV APP_COMMIT=${APP_COMMIT}
 USER app
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "config.wsgi:application"]
+# O socket de controle do gunicorn 26 seria criado em $HOME, que não existe para o usuário app; não é usado.
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "--no-control-socket", "config.wsgi:application"]

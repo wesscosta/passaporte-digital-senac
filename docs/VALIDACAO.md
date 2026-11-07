@@ -73,6 +73,16 @@ Resultados da versão inicial, preservados para histórico:
 - A máscara do campo Celular/WhatsApp é uma conveniência do navegador; a validação continua no servidor. Foram verificados entrada progressiva, colagem com +55, edição, excesso de dígitos e ausência de dependência da máscara para validar.
 - Em PostgreSQL isolado, 129 testes passaram; nove testes JavaScript passaram. Em SQLite, um teste de logins simultâneos falhou com tabela bloqueada: a demonstração local com SQLite não serve para avaliar capacidade ou operar o evento.
 
+## Correções da auditoria de UX — 07/11/2026
+
+- Escopo: A1, A2, A5, M1–M7 e D0 da auditoria de 06/11. Redefinição de PIN pela equipe (A4) e visita pendente após cadastro (A3) dependem de decisão de produto e não foram alteradas.
+- 153 testes passaram no PostgreSQL isolado (24 novos em test_auditoria_ux), inclusive a concorrência existente; nove testes JavaScript passaram. As mudanças não alteram record_stamp, issue_ticket nem redeem. Testes cobrem: horário exibido nunca anterior à liberação do servidor e aceito no minuto exibido (intervalos de 60, 90 e 300 s); durante a pausa, QR, código manual e geração de retirada respondem 503 sem registrar nada, a sessão é mantida e a entrega pela equipe é recusada; atalhos ao /admin/ dependem da permissão efetiva (has_perm, inclusive por grupo), não de is_staff.
+- Chromium 151 e WebKit 26.5 headless (Playwright), 320 e 390 px, dados sintéticos: resumo de erros do cadastro focado e visível; horário único na espera; código manual errado mantém estande e código; voltar após carimbo mostra o registro; mensagem de sessão substituída; evento pausado e retomado sem nova entrada; alertas sem obrigatórios; código de retirada no topo com validade; identificador na confirmação da premiação; 403 com navegação, sem rolagem horizontal.
+- Imagem Docker construída com compose.prod.yaml (projeto e porta isolados, segredos e dados sintéticos, volumes removidos ao final): web e banco saudáveis; 13 estáticos referenciados por início, cadastro, entrada, login da equipe e /admin/ com hash e resposta 200; CSS com gzip e cache imutável, url() internos com hash; X-App-Version presente. Jornada no Chromium contra a imagem confirmou as correções acima.
+- Corrigido no teste da imagem: o gunicorn 26 registrava erro ao criar o socket de controle em /home/app, inexistente para o usuário app; o socket, não usado, foi desativado (--no-control-socket).
+- O WebKit não foi usado contra a imagem: os cookies são Secure fora do DEBUG e o teste local é em HTTP; o WebKit os recusa, o Chromium os aceita em 127.0.0.1. Não é falha do produto, que roda em HTTPS, mas a verificação WebKit da imagem fica pendente.
+- Não verificado: aparelhos reais, leitor de tela (o anúncio do resumo de erros depende do foco por autofocus), build da imagem Docker e servidor de produção.
+
 ## Bloqueadores antes de qualquer evento
 
 1. Definir e testar carga esperada, picos e limites; executar testes de carga e estresse em ambiente semelhante ao real. Medir tempos, falhas, CPU, conexões e locks de banco. Um teste de duas requisições concorrentes não é teste de capacidade. O servidor runserver é apenas para desenvolvimento.

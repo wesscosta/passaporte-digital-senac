@@ -1,0 +1,11 @@
+{# Resumo de erros no topo do formulário. Recebe o foco ao carregar para que o erro não fique abaixo da dobra no celular. #}
+{% if form.errors %}
+<div class="error-summary" id="resumo-erros" tabindex="-1" autofocus aria-labelledby="resumo-erros-titulo">
+  <h2 id="resumo-erros-titulo">Confira {% if form.errors|length == 1 %}o item abaixo{% else %}os itens abaixo{% endif %}</h2>
+  <ul>
+    {% for error in form.non_field_errors %}<li>{{ error }}</li>{% endfor %}
+    {% for field in form %}{% if field.errors %}<li><a href="#{{ field.id_for_label }}">{{ field.label }}: {{ field.errors.0 }}</a></li>{% endif %}{% endfor %}
+  </ul>
+  {% if pin_cleared %}<p>Por segurança, o PIN não é mantido após um erro. Digite o PIN e a confirmação novamente.</p>{% endif %}
+</div>
+{% endif %}

@@ -1,7 +1,7 @@
 """Regras de acesso da equipe, aplicadas no servidor em cada rota."""
 from functools import wraps
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.shortcuts import render
 
 PRIZE_GROUP = "Premiação"
 MANAGER_PERMISSION = "passport.manage_event"
@@ -34,15 +34,22 @@ def can_search_passports(user):
     return user.assigned_stands.filter(active=True, event__active=True).exists()
 
 
+def forbidden(request, message):
+    """403 com explicação e caminho de volta, em vez de uma linha de texto sem navegação."""
+    return render(request, "passport/forbidden.html", {
+        "message": message, "is_team": is_team(request.user),
+    }, status=403)
+
+
 def _guard(check, message):
     def decorator(view):
         @login_required
         @wraps(view)
         def wrapped(request, *args, **kwargs):
             if not is_team(request.user):
-                return HttpResponseForbidden("Acesso restrito à equipe autorizada.")
+                return forbidden(request, "Acesso restrito à equipe autorizada.")
             if check and not check(request.user):
-                return HttpResponseForbidden(message)
+                return forbidden(request, message)
             return view(request, *args, **kwargs)
         return wrapped
     return decorator

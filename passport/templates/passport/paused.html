@@ -1,0 +1,10 @@
+{% extends "passport/base.html" %}
+{% block title %}Evento pausado{% endblock %}
+{% block content %}
+<div class="form-card">
+  <p class="eyebrow">Passaporte guardado</p>
+  <h1>O evento está pausado</h1>
+  <p>Seus carimbos continuam registrados e o passaporte segue conectado neste aparelho. Quando a organização retomar o evento, é só abrir esta página de novo.</p>
+  <div class="actions"><a class="button" href="{% url 'passport' %}">Tentar de novo</a></div>
+</div>
+{% endblock %}

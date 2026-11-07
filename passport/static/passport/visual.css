@@ -346,3 +346,13 @@ input:not([type=checkbox]):focus-visible,select:focus-visible{border-color:var(-
 .stamp-confetti i:nth-child(3n+1){background:#177bb0}
 @keyframes confetti-fall{to{transform:translate(35px,100vh) rotate(540deg);opacity:0}}
 @media(prefers-reduced-motion:reduce){.stamp-confetti{display:none}}
+
+/* Resumo de erros do formulário e validade do código de retirada. */
+.error-summary{margin:0 0 22px;padding:16px 18px;background:#fff0ee;color:#912c23;border:2px solid #b7473c;border-radius:10px}
+.error-summary:focus-visible{outline-offset:3px}
+.error-summary h2{font-size:1.15rem;margin:0 0 8px;color:#912c23}
+.error-summary ul{margin:0 0 0 1.1em;padding:0}
+.error-summary li{margin:4px 0}
+.error-summary a{color:#912c23;font-weight:700}
+.error-summary p{margin:10px 0 0}
+.ticket-expiry{margin:8px 0 6px;font-weight:700}

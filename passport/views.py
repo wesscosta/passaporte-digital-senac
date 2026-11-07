@@ -10,7 +10,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError, transaction
-from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -25,7 +25,8 @@ from .forms import (
 from .ids import normalize_public_id
 from .models import Event, Passport, Redemption, Stamp, Stand
 from .permissions import (
-    assigned_stands, can_search_passports, is_manager, manager_only, prize_allowed, prize_only, search_only, staff_only,
+    assigned_stands, can_search_passports, forbidden, is_manager, manager_only, prize_allowed, prize_only, search_only,
+    staff_only,
 )
 from .services import (
     CONSENT_VERSION, IMAGE_CONSENT_VERSION, audit, client_address, digest, eligible, find_ticket, issue_ticket, limit, mask_contact,
@@ -38,22 +39,50 @@ def current_event():
     return events[0] if len(events) == 1 else None
 
 
-def participant(request):
+SESSION_REPLACED_MESSAGE = (
+    "Seu passaporte foi aberto em outro aparelho ou o PIN foi redefinido pela organização. Entre novamente para continuar."
+)
+
+
+def _forget_participant(request):
+    for key in ("passport_id", "passport_version", "ticket_code"):
+        request.session.pop(key, None)
+
+
+def participant_state(request):
+    """Devolve (passaporte, estado): "ok", "paused" (evento do passaporte pausado) ou "none"."""
     pk, version = request.session.get("passport_id"), request.session.get("passport_version")
     if not pk or not version:
-        return None
-    p = Passport.objects.select_related("event").filter(pk=pk, session_version=version, event__active=True).first()
+        return None, "none"
+    p = Passport.objects.select_related("event").filter(pk=pk).first()
     if not p:
-        request.session.pop("passport_id", None)
-        request.session.pop("passport_version", None)
-        request.session.pop("ticket_code", None)
-    return p
+        _forget_participant(request)
+        return None, "none"
+    if p.session_version != version:
+        # Entrada em outro aparelho ou PIN redefinido: explica em vez de apenas pedir o PIN.
+        _forget_participant(request)
+        messages.warning(request, SESSION_REPLACED_MESSAGE)
+        return None, "none"
+    if not p.event.active:
+        # Pausa do evento não desconecta: a sessão volta a valer quando o evento for reativado.
+        # Se outro evento estiver ativo, este passaporte não serve mais e a sessão é encerrada.
+        if Event.objects.filter(active=True).exists():
+            _forget_participant(request)
+            return None, "none"
+        return None, "paused"
+    return p, "ok"
+
+
+def participant(request):
+    return participant_state(request)[0]
 
 
 def participant_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
-        p = participant(request)
+        p, state = participant_state(request)
+        if state == "paused":
+            return render(request, "passport/paused.html", status=503)
         if not p:
             return redirect("recover")
         return view(request, p, *args, **kwargs)
@@ -79,14 +108,18 @@ def pending_stand(request, event):
     return Stand.objects.filter(pk=pending[0], event=event, active=True).first()
 
 
+def round_up_minute(moment):
+    # Exibir 14:32 para 14:32:40 levaria a uma tentativa recusada; o visitante vê sempre o minuto seguinte.
+    if moment.second or moment.microsecond:
+        return moment.replace(second=0, microsecond=0) + timedelta(minutes=1)
+    return moment
+
+
 def next_stamp_at(p, now=None):
     ready = stamp_ready_at(p)
     if not ready or ready <= (now or timezone.now()):
         return None
-    # Arredonda para o minuto seguinte: exibir 14:32 para 14:32:40 levaria a uma tentativa recusada.
-    if ready.second or ready.microsecond:
-        ready = ready.replace(second=0, microsecond=0) + timedelta(minutes=1)
-    return ready
+    return round_up_minute(ready)
 
 
 def interval_label(seconds):
@@ -200,8 +233,9 @@ def passport_page(request, p):
     if not ticket or ticket.passport_id != p.pk or redeemed:
         code = None
         request.session.pop("ticket_code", None)
-    qr = None
+    qr, ticket_expires_at = None, None
     if code:
+        ticket_expires_at = ticket.expires_at
         url = request.build_absolute_uri(reverse("prize_review", args=[code]))
         image = qrcode.make(url, image_factory=qrcode.image.svg.SvgPathImage, box_size=8, border=3)
         output = io.BytesIO()
@@ -211,13 +245,17 @@ def passport_page(request, p):
     return render(request, "passport/passport.html", {
         "p": p, "rows": rows, "done": done, "total": len(stands),
         "eligible": eligible(p), "redeemed": redeemed, "ticket_code": code, "ticket_qr": qr,
+        "ticket_expires_at": ticket_expires_at, "required_total": sum(1 for s in stands if s.required),
         "next_stamp_at": next_stamp_at(p) if done < len(stands) else None,
         "gap": interval_label(p.event.gap_seconds),
         "celebrate_stamp": any(row["new"] and row["visited"] for row in rows),
     })
 
 
-def report_stamp(request, p, stand_id, code):
+INVALID_CODE_MESSAGE = "Código inválido ou expirado. Peça o código atualizado no estande."
+
+
+def report_stamp(request, p, stand_id, code, *, notify_invalid=True):
     if not limit("stamp.passport", str(p.pk), 30):
         messages.error(request, "Muitas tentativas. Aguarde alguns minutos e tente novamente.")
         return "limited"
@@ -230,14 +268,15 @@ def report_stamp(request, p, stand_id, code):
         stamp = Stamp.objects.get(passport=p, stand_id=stand_id)
         messages.info(request, f"Você já carimbou este estande às {timezone.localtime(stamp.created_at):%H:%M}. O intervalo não foi reiniciado.")
     elif result == "wait":
-        minutes, secs = divmod(seconds, 60)
-        remaining = f"{minutes} min e {secs:02d} s" if minutes else f"{secs} segundos"
-        release = timezone.localtime(timezone.now() + timedelta(seconds=seconds))
-        messages.warning(request, f"Faltam {remaining} para o próximo carimbo. Liberado às {release:%H:%M:%S}.")
+        # Mesmo cálculo e arredondamento do passaporte, para não prometer dois horários diferentes.
+        p.refresh_from_db(fields=["last_stamp_at"])
+        p.event.refresh_from_db(fields=["gap_seconds"])
+        release = next_stamp_at(p) or round_up_minute(timezone.now() + timedelta(seconds=seconds))
+        messages.warning(request, f"Aguarde o intervalo entre carimbos. Seu próximo carimbo fica disponível às {timezone.localtime(release):%H:%M}.")
     elif result == "session":
-        messages.error(request, "Seu passaporte foi aberto em outro aparelho. Entre no passaporte novamente.")
-    else:
-        messages.error(request, "Código inválido ou expirado. Peça o código atualizado no estande.")
+        messages.warning(request, SESSION_REPLACED_MESSAGE)
+    elif notify_invalid:
+        messages.error(request, INVALID_CODE_MESSAGE)
     return result
 
 
@@ -246,8 +285,11 @@ def report_stamp(request, p, stand_id, code):
 def manual_stamp(request, p):
     form = ManualStampForm(request.POST or None, event=p.event)
     if request.method == "POST" and form.is_valid():
-        report_stamp(request, p, form.cleaned_data["stand"].pk, form.cleaned_data["code"])
-        return redirect("passport")
+        result = report_stamp(request, p, form.cleaned_data["stand"].pk, form.cleaned_data["code"], notify_invalid=False)
+        if result != "invalid":
+            return redirect("passport")
+        # Mantém o estande escolhido e o código para correção, sem sair da tela.
+        form.add_error("code", "Código inválido ou expirado. Confira o estande escolhido e digite o código que aparece agora na tela.")
     return render(request, "passport/manual_stamp.html", {"form": form, "next_stamp_at": next_stamp_at(p)})
 
 
@@ -255,7 +297,10 @@ def manual_stamp(request, p):
 def scan_stamp(request, stand_id, code):
     if not re.fullmatch(r"[0-9]{6}", code):
         return render(request, "passport/unavailable.html", status=404)
-    p = participant(request)
+    p, state = participant_state(request)
+    if state == "paused":
+        # Mesmo comportamento das demais telas do visitante: nada é registrado e a sessão é mantida.
+        return render(request, "passport/paused.html", status=503)
     if not p:
         # Primeiro contato costuma ser o QR do estande: oferecer cadastro, não só recuperação.
         event = current_event()
@@ -269,8 +314,10 @@ def scan_stamp(request, stand_id, code):
         if report_stamp(request, p, stand.pk, code) == "invalid":
             return redirect(reverse("manual_stamp") + "#leitor")
         return redirect("passport")
+    stamp = Stamp.objects.filter(passport=p, stand=stand).first()
     return render(request, "passport/scan_confirm.html", {
-        "stand": stand, "expired": not valid_station_code(stand, code), "next_stamp_at": next_stamp_at(p),
+        "stand": stand, "stamp": stamp, "expired": not stamp and not valid_station_code(stand, code),
+        "next_stamp_at": next_stamp_at(p),
     })
 
 
@@ -283,8 +330,9 @@ def issue_redemption(request, p):
     if code:
         request.session["ticket_code"] = code
         messages.success(request, "Código de retirada gerado. Apresente-o no setor de premiação.")
-    else:
-        messages.error(request, "Ainda não é possível gerar o código de retirada.")
+        # Leva direto ao código: depois de gerar, ele ficava abaixo da dobra no celular.
+        return redirect(reverse("passport") + "#codigo-retirada")
+    messages.error(request, "Ainda não é possível gerar o código de retirada.")
     return redirect("passport")
 
 
@@ -304,7 +352,7 @@ def staff_home(request):
 def station(request, stand_id):
     stand = get_object_or_404(Stand, pk=stand_id, active=True, event__active=True)
     if not assigned_stands(request.user, Stand.objects.filter(pk=stand.pk)).exists():
-        return HttpResponseForbidden("Este estande não está atribuído à sua conta.")
+        return forbidden(request, "Este estande não está atribuído à sua conta.")
     now = timezone.now()
     code = station_code(stand, now)
     url = request.build_absolute_uri(reverse("scan_stamp", args=[stand.pk, code]))
@@ -452,6 +500,7 @@ def manager_home(request):
     return render(request, "passport/manager.html", {
         "event": event, "form": form, "gap": interval_label(event.gap_seconds), "divisible": divisible,
         "waiting": waiting, "stands": stands, "unmatched": unmatched,
+        "required_total": sum(1 for s in stands if s.required),
     })
 
 

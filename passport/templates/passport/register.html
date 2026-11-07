@@ -9,9 +9,9 @@
   {% if pending_stand %}<p class="pending-visit">Depois do cadastro, você confirma a visita a <strong>{{ pending_stand.name }}</strong>.</p>{% endif %}
   <p class="notice">O PIN permite entrar de novo no passaporte, mas não confirma a posse do telefone. Política de privacidade ainda pendente de aprovação.</p>
   <p class="testing-note">Ambiente de teste: não informe dados reais.</p>
+  {% include "passport/_error_summary.html" with form=form pin_cleared=True only %}
   <form method="post" novalidate>
     {% csrf_token %}
-    {{ form.non_field_errors }}
     {% for field in form %}
       {% if field.name == "image_consent" %}
       <fieldset class="consent-group">

@@ -55,6 +55,14 @@ Comportamento seguro em caso de inconsistência: sem a lista, ou com conexão de
 
 Visitantes atrás do mesmo NAT (Wi-Fi do evento, operadora móvel com CGNAT) compartilham um endereço e somam tentativas no mesmo contador por endereço. Os limites por endereço precisam ser dimensionados para a rede do local antes do evento; os limites por conta e por contato não são afetados.
 
+## Estáticos e versão publicada
+
+Em produção (config.settings_production), os estáticos usam nomes com hash do conteúdo (CompressedManifestStaticFilesStorage do WhiteNoise), gerados pelo collectstatic do Dockerfile. Um arquivo novo nunca é servido com o endereço de um antigo. Informe o commit no build para que a resposta traga o cabeçalho X-App-Version:
+
+    APP_COMMIT=$(git rev-parse --short HEAD) docker compose -f compose.prod.yaml build
+
+O valor só é aceito se for um hash hexadecimal de 7 a 40 caracteres. Ele identifica o commit informado, não detecta alterações locais não commitadas.
+
 ## Equipe e dados demonstrativos
 
 O comando seed_demo cria as seis áreas e o grupo Premiação. Não cria senhas nem contas de equipe. Para configurar usuários locais, crie uma conta administrativa de desenvolvimento com:

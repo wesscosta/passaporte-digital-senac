@@ -1,7 +1,10 @@
 name: conexaosenac
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        APP_COMMIT: ${APP_COMMIT:-}
     restart: unless-stopped
     environment:
       DJANGO_SETTINGS_MODULE: config.settings_production

@@ -24,6 +24,14 @@ Decisões de 06/11 (área da equipe, gestão e insígnias):
 - A área de cada estande é deduzida do nome (sem acento e sem diferença de maiúsculas; GESCOM é aceito). Estandes com outro nome recebem insígnia neutra e aparecem sinalizados na gestão. Um campo explícito de área exigiria decisão e migração; não foi criado.
 - Celular e identificador só são encontrados com valor completo, para não permitir listar visitantes por trechos de número. Nome exige ao menos 3 caracteres.
 
+Decisões de 07/11 (correções da auditoria de UX):
+
+- Evento desativado não encerra a sessão do visitante: o passaporte mostra "evento pausado" e volta a funcionar quando o mesmo evento é reativado. Se outro evento estiver ativo, a sessão do passaporte antigo é encerrada.
+- Sessão invalidada (entrada em outro aparelho ou PIN redefinido) leva à tela de entrada com a explicação do motivo.
+- A mensagem de espera usa o mesmo horário do passaporte: último carimbo + intervalo atual, arredondado para o minuto seguinte. Não exibe mais segundos.
+- Sem estande obrigatório ativo, o visitante é informado de que a retirada ainda não foi liberada e a gestão recebe alerta. A regra de elegibilidade não mudou.
+- Páginas 403 da equipe passam a ter explicação e navegação; a gestão não indica o /admin/ a quem não tem permissão nele.
+
 ## Arquitetura em avaliação
 
 Monólito Django com HTML renderizado no servidor, PostgreSQL, CSS local e código JavaScript mínimo. A escolha busca simplicidade operacional e páginas pequenas, mas **não significa que Python ou Django sejam intrinsecamente a melhor opção para qualquer carga**. A capacidade ainda precisa ser medida em infraestrutura semelhante à produção, com carga e critérios acordados. Não foi feita comparação experimental com Node.js, Go ou outras alternativas.

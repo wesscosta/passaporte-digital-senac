@@ -1,0 +1,17 @@
+{% extends "passport/base.html" %}
+{% block title %}Acesso não permitido{% endblock %}
+{% block content %}
+<div class="form-card">
+  <p class="eyebrow">Área da equipe</p>
+  <h1>Acesso não permitido</h1>
+  <p>{{ message }}</p>
+  <p>Se você precisa deste acesso para trabalhar no evento, fale com o administrador do sistema. As permissões são definidas por ele.</p>
+  <div class="actions">
+    {% if is_team %}<a class="button" href="{% url 'staff_home' %}">Voltar ao painel da equipe</a>{% endif %}
+    <a class="button{% if is_team %} secondary{% endif %}" href="{% url 'home' %}">Ir para o início</a>
+  </div>
+  {% if user.is_authenticated %}
+  <form method="post" action="{% url 'staff_logout' %}" class="section-actions">{% csrf_token %}<button class="button secondary" type="submit">Sair e entrar com outra conta</button></form>
+  {% endif %}
+</div>
+{% endblock %}

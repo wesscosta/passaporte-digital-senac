@@ -3,7 +3,8 @@
     {% if redeemed %}<p>Entrega já registrada pela equipe. Obrigado por participar!</p>
     {% elif eligible %}<p>Você completou os estandes obrigatórios. Gere seu código e apresente-o à equipe de premiação. Ele vale por cinco minutos.</p>
     <form method="post" action="{% url 'issue_redemption' %}">{% csrf_token %}<button class="button" type="submit">{% if ticket_code %}Gerar novo código{% else %}Gerar código de retirada{% endif %}</button></form>
-    {% if ticket_code %}<div class="ticket"><img src="data:image/svg+xml;base64,{{ ticket_qr }}" alt="QR code de retirada para a equipe de premiação"><p>Código de retirada</p><strong>{{ ticket_code }}</strong><small>Apresente somente à equipe autorizada.</small></div>{% endif %}
+    {% if ticket_code %}<div class="ticket" id="codigo-retirada" tabindex="-1"><img src="data:image/svg+xml;base64,{{ ticket_qr }}" alt="QR code de retirada para a equipe de premiação"><p>Código de retirada</p><strong>{{ ticket_code }}</strong>{% if ticket_expires_at %}<p class="ticket-expiry">Válido até <time datetime="{{ ticket_expires_at|date:'c' }}">{{ ticket_expires_at|time:"H:i" }}</time>. Depois disso, gere um novo código.</p>{% endif %}<small>Apresente somente à equipe autorizada.</small></div>{% endif %}
+    {% elif not required_total %}<p>A retirada de prêmios ainda não foi liberada pela organização. Continue visitando os estandes: seus carimbos ficam guardados.</p>
     {% else %}<p>Complete os estandes obrigatórios para habilitar a retirada.</p>{% endif %}
   </div>
   <span class="reward-wheel" aria-hidden="true"></span>
