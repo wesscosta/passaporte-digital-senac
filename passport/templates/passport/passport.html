@@ -1,6 +1,7 @@
 {% extends "passport/base.html" %}
 {% block title %}Meu passaporte{% endblock %}
 {% block content %}
+{% if celebrate_stamp %}<div class="stamp-confetti" aria-hidden="true">{% for color in "123456789012345678901234" %}<i style="--piece:{{ forloop.counter0 }}"></i>{% endfor %}</div>{% endif %}
 <section class="passport-cover" aria-labelledby="passport-title">
   <div class="passport-cover-copy">
     <p class="eyebrow">Seu passaporte digital</p>

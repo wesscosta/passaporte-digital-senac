@@ -15,9 +15,9 @@
   <div class="section-heading compact"><div><p class="eyebrow">Circuito Senac</p><h2 id="estandes-title">Seus estandes</h2></div><p>Selecione a área onde você está atendendo.</p></div>
   <ul class="staff-grid">
     {% for stand in stands %}
-    <li><a class="staff-card" href="{% url 'station' stand.pk %}">
+    <li><a class="staff-card" href="{% url 'station' stand.pk %}" target="_blank" rel="noopener">
       {% include "passport/_area_icon.html" with stand=stand only %}
-      <span class="staff-card-copy"><strong>{{ stand.name }}</strong><span>Exibir QR code e código</span></span>
+      <span class="staff-card-copy"><strong>{{ stand.name }}</strong><span>Exibir QR code e código (abre em nova aba)</span></span>
     </a></li>
     {% empty %}<li class="empty-state">Nenhum estande atribuído a esta conta. Procure a organização.</li>{% endfor %}
   </ul>

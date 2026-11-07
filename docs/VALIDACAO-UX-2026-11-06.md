@@ -25,6 +25,25 @@ Escopo: identidade no cabeçalho e rodapé, grafismo lateral, redução de setas
 - Brave/Chromium headless: largura do botão igual à do formulário em 320, 375, 768 e 1280 px, sem rolagem horizontal.
 - Após o ajuste, 116 testes passaram no PostgreSQL em banco de teste isolado; `manage.py check` não apontou problemas.
 
+## Revisão do painel de estande e falha de sessão
+
+- Nesta revisão anterior, o QR foi ampliado e o código manual foi posicionado abaixo; a apresentação compacta preservava a identidade e o retorno aos estandes. QR e código derivam da mesma janela e são renovados a cada minuto, independentemente do intervalo entre carimbos.
+- Brave/Chromium headless: QR e código visíveis sem rolagem nas janelas testadas de 320×800, 375×812, 768×1024, 1024×768, 1366×768 e 1920×1080, sem rolagem horizontal. Falha e retorno de rede foram simulados: o QR vencido fica oculto e o código indisponível até atualização válida.
+- Foram executados 122 testes no PostgreSQL e três testes JavaScript. A resposta CSRF permanece 403, com opção para reabrir a página sem reenviar dados. Um teste reproduziu o token antigo após login em outra aba; isso é uma hipótese para o caso observado, não prova de sua causa.
+
+## Revisão provisória do formulário de cadastro
+
+- Segmento de interesse obrigatório em seletor móvel, nome completo e celular; imagem e comunicações em caixas independentes, opcionais e desmarcadas. O PIN permanece obrigatório para recuperação.
+- Brave/Chromium headless em 320, 375, 768 e 1280 px: sem rolagem horizontal; caixas alinhadas com seus rótulos; botão com a largura do formulário; erro e cadastro verificados com dados fictícios. A análise não substitui validação em aparelhos reais ou por leitor de tela.
+
+## Painel de exibição e máscara de celular
+
+- Cada cartão da equipe abre o estande em nova aba e informa isso no texto; o painel anterior continua disponível. A tela de exibição não tem mais o botão de retorno e destaca QR e código manual juntos.
+- Contagem regressiva e barra indicam a próxima troca, calculada a partir da janela informada pelo servidor; não indicam o fim da aceitação do código anterior nem o intervalo entre carimbos. Na verificação em navegador, QR e código mudaram juntos na virada real de um minuto. Em falha de atualização o código anterior é ocultado; a próxima tentativa ocorre automaticamente.
+- Cadastro: rótulo Celular/WhatsApp com DDD e máscara progressiva, inclusive para colagem e DDI +55. O servidor continua validando e normalizando o número; a máscara não prova posse nem descarta dígitos excedentes.
+- Brave/Chromium headless: 1280×720, 1366×768, 1024×768, 768×1024 e 320×800 sem rolagem horizontal; QR, código e barra visíveis nas janelas testadas. Digitação da máscara testada em 375 px. Não substitui teste em aparelhos, câmeras, teclados móveis ou leitores de tela reais.
+- Suíte com 129 testes passou em PostgreSQL isolado; nove testes JavaScript passaram. No teste em SQLite houve erro de tabela bloqueada no teste de logins simultâneos. A cópia SQLite da rede é apenas uma demonstração, não ambiente para o evento.
+
 ## Não verificado e impedimentos
 
 - Android/iOS reais, câmera real, leitor de tela, zoom de 200%, contraste integral, carga e rede do evento não foram testados nesta revisão. A verificação parcial não comprova conformidade WCAG.

@@ -1,0 +1,14 @@
+{% extends "passport/base.html" %}
+{% block title %}Não foi possível enviar{% endblock %}
+{% block content %}
+<div class="form-card">
+  <p class="eyebrow">Vamos tentar novamente</p>
+  <h1>Não foi possível enviar</h1>
+  <p>Por segurança, este envio não foi processado. A página pode ter expirado ou a sessão pode ter mudado em outra aba.</p>
+  <p>Reabra a página e preencha novamente os dados necessários antes de tentar outra vez.</p>
+  <div class="actions">
+    <a class="button" href="{{ retry_url }}">Reabrir página</a>
+    <a class="button secondary" href="{% url 'home' %}">Voltar ao início</a>
+  </div>
+</div>
+{% endblock %}

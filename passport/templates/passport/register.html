@@ -1,4 +1,5 @@
 {% extends "passport/base.html" %}
+{% load static %}
 {% block title %}Criar passaporte{% endblock %}
 {% block content %}
 <a class="back" href="{% url 'home' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao início</a>
@@ -12,7 +13,12 @@
     {% csrf_token %}
     {{ form.non_field_errors }}
     {% for field in form %}
-      {% if field.name == "marketing" %}
+      {% if field.name == "image_consent" %}
+      <fieldset class="consent-group">
+        <legend>Autorizações opcionais</legend>
+        <p>Você decide separadamente sobre cada finalidade. Nenhuma delas é necessária para participar.</p>
+      {% endif %}
+      {% if field.name == "image_consent" or field.name == "marketing" %}
       <div class="consent-row">
         {{ field }}
         <label for="{{ field.id_for_label }}">{{ field.label }} <span class="consent-optional">(opcional)</span></label>
@@ -22,13 +28,15 @@
       <div class="form-field">
         {{ field.label_tag }}{{ field }}
         {{ field.errors }}
-        {% if field.help_text %}<small class="helptext">{{ field.help_text }}</small>{% endif %}
+        {% if field.help_text %}<small class="helptext" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</small>{% endif %}
       </div>
       {% endif %}
+      {% if field.name == "marketing" %}</fieldset>{% endif %}
     {% endfor %}
     <button class="button form-submit form-submit--registration" type="submit">Criar passaporte</button>
   </form>
   <p class="form-footer">Já tem um passaporte? <a href="{% url 'recover' %}">Entrar no passaporte</a></p>
 </div>
 {% endblock %}
+{% block scripts %}<script src="{% static 'passport/phone-mask.js' %}" defer></script>{% endblock %}
 

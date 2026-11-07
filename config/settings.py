@@ -55,6 +55,7 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+CSRF_FAILURE_VIEW = "passport.errors.csrf_failure"
 LOGIN_URL = "staff_login"
 LOGIN_REDIRECT_URL = "staff_home"
 LOGOUT_REDIRECT_URL = "home"

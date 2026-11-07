@@ -8,10 +8,10 @@
   <link rel="icon" href="data:,">
   <title>{% block title %}Passaporte Digital{% endblock %} | Circuito Senac</title>
   <link rel="stylesheet" href="{% static 'passport/app.css' %}">
-  <link rel="stylesheet" href="{% static 'passport/visual.css' %}">
+  <link rel="stylesheet" href="{% static 'passport/visual.css' %}?v=20261106-2">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% block body_class %}{% endblock %}">
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
 <header class="top">
   <div class="top-inner">

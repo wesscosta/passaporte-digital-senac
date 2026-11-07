@@ -20,6 +20,7 @@ urlpatterns = [
     path("equipe/passaportes/", views.passport_search, name="passport_search"),
     path("equipe/passaportes/<str:public_id>/", views.passport_detail, name="passport_detail"),
     path("equipe/gestao/", views.manager_home, name="manager_home"),
+    path("equipe/gestao/relatorio/", views.manager_report, name="manager_report"),
     path("equipe/premios/", views.prize_lookup, name="prize_lookup"),
     path("equipe/premios/<str:code>/", views.prize_review, name="prize_review"),
 ]

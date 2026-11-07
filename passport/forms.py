@@ -2,7 +2,7 @@ import re
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
-from .models import Stand
+from .models import InterestSegment, Stand
 
 
 def normalize_phone(value):
@@ -35,10 +35,22 @@ def normalize_contact(value):
 
 
 class RegistrationForm(forms.Form):
-    name = forms.CharField(label="Nome", max_length=120, widget=forms.TextInput(attrs={"autocomplete": "name"}))
-    contact = forms.CharField(label="Celular com DDD", max_length=22, widget=forms.TextInput(attrs={"type": "tel", "inputmode": "tel", "autocomplete": "tel-national", "placeholder": "(86) 99999-9999"}))
+    name = forms.CharField(label="Nome completo", max_length=120, widget=forms.TextInput(attrs={"autocomplete": "name"}))
+    contact = forms.CharField(
+        label="Celular/WhatsApp com DDD", max_length=22, help_text="Digite um número brasileiro com DDD. Exemplo: (86) 99999-9999.",
+        widget=forms.TextInput(attrs={"type": "tel", "inputmode": "tel", "autocomplete": "tel-national", "placeholder": "(86) 99999-9999", "data-phone-mask": "br-mobile"}),
+    )
+    interest_segment = forms.ChoiceField(
+        label="Qual segmento do Senac mais interessa a você?",
+        choices=[("", "Selecione uma opção"), *InterestSegment.choices],
+        error_messages={"required": "Selecione um segmento de interesse.", "invalid_choice": "Selecione um segmento válido."},
+    )
     pin = forms.RegexField(r"^[0-9]{6}$", label="Crie um PIN de 6 dígitos", widget=forms.PasswordInput(attrs={"inputmode": "numeric", "autocomplete": "new-password"}), error_messages={"invalid": "Use exatamente 6 números."})
     pin_confirm = forms.CharField(label="Confirme o PIN", widget=forms.PasswordInput(attrs={"inputmode": "numeric", "autocomplete": "new-password"}))
+    image_consent = forms.BooleanField(
+        label="Autorizo o uso da minha imagem (foto e vídeo) em materiais de divulgação do Circuito Senac.",
+        required=False,
+    )
     marketing = forms.BooleanField(label="Quero receber no celular novidades do Senac sobre cursos e eventos.", required=False)
 
     def clean_contact(self):
@@ -54,6 +66,7 @@ class RegistrationForm(forms.Form):
 class RecoveryForm(forms.Form):
     contact = forms.CharField(label="Celular cadastrado", max_length=254, widget=forms.TextInput(attrs={"type": "tel", "inputmode": "tel", "autocomplete": "tel-national", "placeholder": "(86) 99999-9999"}))
     pin = forms.RegexField(r"^[0-9]{6}$", label="PIN de 6 dígitos", widget=forms.PasswordInput(attrs={"inputmode": "numeric", "autocomplete": "current-password"}), error_messages={"invalid": "Use exatamente 6 números."})
+    remember = forms.BooleanField(label="Manter meu passaporte conectado neste dispositivo", required=False, initial=True)
 
     def clean_contact(self):
         return normalize_contact(self.cleaned_data["contact"])

@@ -60,6 +60,19 @@ Resultados da versão inicial, preservados para histórico:
 - Na versão inicial, sem cache e sem compressão, a página inicial mediu 8.182 bytes de HTML e CSS. Esta medida não se aplica automaticamente à interface revisada e deve ser refeita.
 - Durante o teste real, uma política de referrer provocou falha CSRF em POST e foi alterada para same-origin. A navegação por tela pequena também foi ajustada.
 
+## Revisão provisória do cadastro — 06/11/2026
+
+- Incluída uma seleção obrigatória de segmento de interesse, independente dos estandes; os rótulos de Artes e Design e Gestão e Comércio seguem as áreas conhecidas do circuito.
+- As escolhas de imagem e de marketing são independentes, opcionais e inicialmente desmarcadas. A escolha de imagem é registrada com versão provisória e horário; registros anteriores ficam com segmento vazio e escolha de imagem não informada, sem presumir autorização. Campos ficam somente para leitura no administrativo.
+- Em banco PostgreSQL de teste isolado, 128 testes passaram, incluindo todas as combinações de autorização e a migração de registros anteriores; três testes JavaScript também passaram. Brave/Chromium headless em 320, 375, 768 e 1280 px: sem rolagem horizontal; checkboxes alinhados e não marcados; cadastro e erro de segmento verificados com dados fictícios.
+- Não há exportação de leads, verificação de posse do telefone, comprovação de identidade ou idade, vínculo entre pessoas e imagens captadas, nem fluxo de revogação de imagem e marketing. O texto é provisório e não constitui aprovação institucional ou conclusão de conformidade; continua proibido usar dados reais nesta demonstração.
+
+## Painel de estande e máscara — 06/11/2026
+
+- A tela de cada estande abre em nova aba, exibe barra e segundos até a próxima troca e atualiza QR e código conjuntamente. A aceitação do código da janela anterior permanece para tolerar a transição; o indicador não altera a regra entre carimbos.
+- A máscara do campo Celular/WhatsApp é uma conveniência do navegador; a validação continua no servidor. Foram verificados entrada progressiva, colagem com +55, edição, excesso de dígitos e ausência de dependência da máscara para validar.
+- Em PostgreSQL isolado, 129 testes passaram; nove testes JavaScript passaram. Em SQLite, um teste de logins simultâneos falhou com tabela bloqueada: a demonstração local com SQLite não serve para avaliar capacidade ou operar o evento.
+
 ## Bloqueadores antes de qualquer evento
 
 1. Definir e testar carga esperada, picos e limites; executar testes de carga e estresse em ambiente semelhante ao real. Medir tempos, falhas, CPU, conexões e locks de banco. Um teste de duas requisições concorrentes não é teste de capacidade. O servidor runserver é apenas para desenvolvimento.

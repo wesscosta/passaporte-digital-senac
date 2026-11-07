@@ -1,0 +1,22 @@
+{% extends "passport/base.html" %}
+{% block title %}Relatório do evento{% endblock %}
+{% block content %}
+<a class="back" href="{% url 'manager_home' %}">Voltar à gestão do evento</a>
+<header class="page-heading"><div><p class="eyebrow">Gestão</p><h1>Relatório do evento</h1>{% if event %}<p>{{ event.name }}</p>{% endif %}</div></header>
+{% if event %}
+<div class="actions"><a class="button" href="?formato=csv">Exportar CSV</a></div>
+<div class="manager-grid">
+  <section class="tool-card" aria-labelledby="resumo">
+    <h2 id="resumo">Resumo</h2>
+    <dl>{% for label, total in metrics %}<dt>{{ label }}</dt><dd>{{ total }}</dd>{% endfor %}</dl>
+    <p>A conclusão considera os estandes ativos exigidos. Aptos à retirada são os visitantes que concluíram o circuito e ainda não receberam o prêmio.</p>
+  </section>
+  <section class="tool-card" aria-labelledby="movimento">
+    <h2 id="movimento">Carimbos por estande</h2>
+    {% if stands %}
+    <dl>{% for stand in stands %}<dt>{{ stand.name }}{% if not stand.active %} (inativo){% endif %}</dt><dd>{{ stand.visits }}</dd>{% endfor %}</dl>
+    {% else %}<p>Nenhum estande cadastrado.</p>{% endif %}
+  </section>
+</div>
+{% else %}<p class="notice">O relatório exige exatamente um evento ativo.</p>{% endif %}
+{% endblock %}

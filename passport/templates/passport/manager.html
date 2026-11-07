@@ -6,6 +6,7 @@
 {% if not event %}
 <p class="notice">Não há exatamente um evento ativo. Ajuste os eventos no administrativo antes de alterar o intervalo.</p>
 {% else %}
+<div class="actions"><a class="button secondary" href="{% url 'manager_report' %}">Ver relatório</a></div>
 <div class="manager-grid">
   <section class="form-card" aria-labelledby="intervalo">
     <h2 id="intervalo">Intervalo entre carimbos</h2>

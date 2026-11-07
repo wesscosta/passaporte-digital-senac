@@ -1,28 +1,34 @@
 {% extends "passport/base.html" %}
 {% load static %}
 {% block title %}Tela do estande{% endblock %}
+{% block body_class %}station-mode{% endblock %}
 {% block content %}
-<a class="back" href="{% url 'staff_home' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar aos estandes</a>
 <section class="station-screen" data-station data-refresh-ms="{{ milliseconds }}" aria-labelledby="station-title">
   <div class="station-heading">
-    <div><p class="eyebrow">Estande do Circuito Senac</p><h1 id="station-title">{{ stand.name }}</h1><p>Deixe esta tela visível para o visitante registrar sua passagem.</p></div>
-    {% include "passport/_area_icon.html" with stand=stand only %}
+    <div><p class="eyebrow">Estande do Circuito Senac</p><h1 id="station-title">{{ stand.name }}</h1></div>
+    <div class="station-brand">
+      {% include "passport/_area_icon.html" with stand=stand only %}
+      <img class="station-logo" src="{% static 'passport/identity/logo-circuito-compacto.svg' %}" width="1299" height="549" alt="Circuito Senac">
+    </div>
   </div>
   <div class="station-grid">
     <div class="station-scan">
-      <div class="step-label"><span>01</span> ESCANEIE COM O CELULAR</div>
-      <div class="station-qr-frame"><img class="station-qr" src="data:image/svg+xml;base64,{{ qr }}" alt="QR code de visita ao estande"></div>
-      <p>Abra o leitor do passaporte ou a câmera do celular e confirme a visita.</p>
+      <h2>Escaneie o QR code</h2>
+      <div class="station-qr-frame"><img class="station-qr" src="data:image/svg+xml;base64,{{ qr }}" alt="QR code para registrar visita em {{ stand.name }}"></div>
     </div>
     <div class="station-manual">
-      <div class="step-label"><span>02</span> OU INFORME O CÓDIGO</div>
-      <p>Se preferir, digite no passaporte:</p>
+      <p>Ou digite este código no passaporte:</p>
       <strong class="station-code">{{ code }}</strong>
-      <p class="station-update" data-station-status role="status">O código é atualizado automaticamente a cada minuto.</p>
-      <a class="refresh-link" href="{% url 'station' stand.pk %}">Atualizar código agora</a>
+      <div class="station-countdown" data-station-timer hidden>
+        <div class="station-countdown-label"><span>Próxima atualização</span><strong data-station-seconds>-- s</strong></div>
+        <progress data-station-progress max="60000" value="{{ milliseconds }}" aria-label="Tempo restante para atualizar o QR code e o código"></progress>
+      </div>
+      <p class="station-update" data-station-status role="status"></p>
+      <noscript><p class="station-update">Ative o JavaScript para atualizar automaticamente. Sem ele, atualize a página a cada minuto.</p></noscript>
+      <a class="refresh-link" href="{% url 'station' stand.pk %}">Atualizar agora</a>
     </div>
   </div>
 </section>
 {% endblock %}
-{% block scripts %}<script src="{% static 'passport/station.js' %}" defer></script>{% endblock %}
+{% block scripts %}<script src="{% static 'passport/station.js' %}?v=20261106-2" defer></script>{% endblock %}
 

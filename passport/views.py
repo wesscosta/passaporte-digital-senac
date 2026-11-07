@@ -1,4 +1,5 @@
 import base64
+import csv
 import io
 import re
 from datetime import timedelta
@@ -9,7 +10,7 @@ from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.contrib.auth.hashers import make_password
 from django.db import IntegrityError, transaction
-from django.http import HttpResponseForbidden, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseForbidden, HttpResponseNotAllowed
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -27,7 +28,7 @@ from .permissions import (
     assigned_stands, can_search_passports, is_manager, manager_only, prize_allowed, prize_only, search_only, staff_only,
 )
 from .services import (
-    CONSENT_VERSION, audit, client_address, digest, eligible, find_ticket, issue_ticket, limit, mask_contact,
+    CONSENT_VERSION, IMAGE_CONSENT_VERSION, audit, client_address, digest, eligible, find_ticket, issue_ticket, limit, mask_contact,
     record_stamp, redeem, set_gap_minutes, stamp_ready_at, station_code, valid_station_code, verify_pin,
 )
 
@@ -59,8 +60,9 @@ def participant_required(view):
     return wrapped
 
 
-def sign_in_participant(request, p):
+def sign_in_participant(request, p, *, remember=True):
     request.session.cycle_key()
+    request.session.set_expiry(None if remember else 0)
     request.session["passport_id"] = p.pk
     request.session["passport_version"] = p.session_version
     request.session.pop("ticket_code", None)
@@ -134,12 +136,15 @@ def register(request):
                 pin_hash = make_password(data["pin"])
                 try:
                     with transaction.atomic():
+                        recorded_at = timezone.now()
                         p = Passport.objects.create(
                             event=event, name=data["name"], contact=data["contact"],
                             contact_digest=digest("contact", data["contact"]),
-                            pin_hash=pin_hash,
+                            pin_hash=pin_hash, interest_segment=data["interest_segment"],
                             consent_marketing=data["marketing"], consent_version=CONSENT_VERSION,
-                            consent_recorded_at=timezone.now(),
+                            consent_recorded_at=recorded_at,
+                            consent_image=data["image_consent"], consent_image_version=IMAGE_CONSENT_VERSION,
+                            consent_image_recorded_at=recorded_at,
                         )
                     return sign_in_participant(request, p)
                 except IntegrityError:
@@ -172,7 +177,7 @@ def recover(request):
                     if p and p.pin_hash == candidate.pin_hash:
                         p.session_version += 1
                         p.save(update_fields=["session_version"])
-                        return sign_in_participant(request, p)
+                        return sign_in_participant(request, p, remember=form.cleaned_data["remember"])
         form.add_error(None, "Não foi possível entrar. Confira os dados ou aguarde e tente novamente.")
     return render(request, "passport/recover.html", {"form": form, "event": event, "pending_stand": pending_stand(request, event)})
 
@@ -208,6 +213,7 @@ def passport_page(request, p):
         "eligible": eligible(p), "redeemed": redeemed, "ticket_code": code, "ticket_qr": qr,
         "next_stamp_at": next_stamp_at(p) if done < len(stands) else None,
         "gap": interval_label(p.event.gap_seconds),
+        "celebrate_stamp": any(row["new"] and row["visited"] for row in rows),
     })
 
 
@@ -221,10 +227,13 @@ def report_stamp(request, p, stand_id, code):
         request.session["just_stamped"] = stand_id
         messages.success(request, f"{stamp.stand.name} carimbado às {timezone.localtime(stamp.created_at):%H:%M}.")
     elif result == "duplicate":
-        messages.info(request, "Este estande já foi registrado. O intervalo não foi reiniciado.")
+        stamp = Stamp.objects.get(passport=p, stand_id=stand_id)
+        messages.info(request, f"Você já carimbou este estande às {timezone.localtime(stamp.created_at):%H:%M}. O intervalo não foi reiniciado.")
     elif result == "wait":
         minutes, secs = divmod(seconds, 60)
-        messages.error(request, f"Aguarde {minutes}min {secs:02d}s para o próximo carimbo.")
+        remaining = f"{minutes} min e {secs:02d} s" if minutes else f"{secs} segundos"
+        release = timezone.localtime(timezone.now() + timedelta(seconds=seconds))
+        messages.warning(request, f"Faltam {remaining} para o próximo carimbo. Liberado às {release:%H:%M:%S}.")
     elif result == "session":
         messages.error(request, "Seu passaporte foi aberto em outro aparelho. Entre no passaporte novamente.")
     else:
@@ -303,7 +312,8 @@ def station(request, stand_id):
     output = io.BytesIO()
     svg.save(output)
     qr = base64.b64encode(output.getvalue()).decode("ascii")
-    milliseconds = (60 - (int(now.timestamp()) % 60)) * 1000 + 250
+    # Calcula a duração até a próxima janela com precisão de milissegundos.
+    milliseconds = max(1, int((60 - (now.timestamp() % 60)) * 1000))
     return render(request, "passport/station.html", {"stand": stand, "code": code, "qr": qr, "milliseconds": milliseconds})
 
 
@@ -442,4 +452,53 @@ def manager_home(request):
     return render(request, "passport/manager.html", {
         "event": event, "form": form, "gap": interval_label(event.gap_seconds), "divisible": divisible,
         "waiting": waiting, "stands": stands, "unmatched": unmatched,
+    })
+
+
+@never_cache
+@manager_only
+@require_safe
+def manager_report(request):
+    event = current_event()
+    if not event:
+        return render(request, "passport/manager_report.html", {"event": None}, status=503)
+
+    stands = list(event.stands.annotate(
+        visits=Count("stamps", filter=Q(stamps__passport__event=event)),
+    ))
+    required = [stand.pk for stand in stands if stand.active and stand.required]
+    passports = Passport.objects.filter(event=event).annotate(
+        completed_stands=Count("stamps", filter=Q(stamps__stand_id__in=required)),
+        event_visits=Count("stamps", filter=Q(stamps__stand__event=event)),
+    )
+    completed = Q(completed_stands=len(required)) if required else Q(pk__in=[])
+    totals = passports.aggregate(
+        issued=Count("pk"),
+        visited=Count("pk", filter=Q(event_visits__gt=0)),
+        completed=Count("pk", filter=completed),
+        eligible=Count("pk", filter=completed & Q(redemption__isnull=True)),
+        redeemed=Count("pk", filter=Q(redemption__isnull=False)),
+    )
+    metrics = [
+        ("Passaportes emitidos", totals["issued"]),
+        ("Visitantes com pelo menos um carimbo", totals["visited"]),
+        ("Circuitos concluídos", totals["completed"]),
+        ("Aptos à retirada", totals["eligible"]),
+        ("Prêmios entregues", totals["redeemed"]),
+    ]
+    if request.GET.get("formato") == "csv":
+        response = HttpResponse(content_type="text/csv; charset=utf-8")
+        response["Content-Disposition"] = 'attachment; filename="relatorio-circuito.csv"'
+        response.write("\ufeff")
+        writer = csv.writer(response, delimiter=";")
+        writer.writerow(["Seção", "Indicador", "Total"])
+        writer.writerows(("Resumo", label, total) for label, total in metrics)
+        for stand in stands:
+            name = stand.name
+            if name.lstrip().startswith(("=", "+", "-", "@")) or name.startswith(("\t", "\r", "\n")):
+                name = "'" + name
+            writer.writerow(["Estandes", name, stand.visits])
+        return response
+    return render(request, "passport/manager_report.html", {
+        "event": event, "metrics": metrics, "stands": stands,
     })

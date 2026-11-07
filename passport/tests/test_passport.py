@@ -45,13 +45,14 @@ class PassportTests(TestCase):
         token = client.cookies["csrftoken"].value
         response = client.post(reverse("register"), {
             "name": "Pessoa", "contact": "85999998880", "pin": "123456",
-            "pin_confirm": "123456", "csrfmiddlewaretoken": token,
+            "pin_confirm": "123456", "interest_segment": "tecnologia", "csrfmiddlewaretoken": token,
         }, secure=True, HTTP_ORIGIN="https://testserver")
         self.assertEqual(response.status_code, 302)
 
     def test_registration_hashes_pin_and_consent_is_opt_in(self):
         response = self.client.post(reverse("register"), {
             "name": "Pessoa", "contact": "+55 (85) 99999-8888", "pin": "123456", "pin_confirm": "123456",
+            "interest_segment": "tecnologia",
         })
         self.assertRedirects(response, reverse("passport"))
         p = Passport.objects.get()
@@ -65,7 +66,7 @@ class PassportTests(TestCase):
     def test_marketing_consent_is_recorded(self):
         self.client.post(reverse("register"), {
             "name": "Pessoa", "contact": "85999998888", "pin": "123456",
-            "pin_confirm": "123456", "marketing": "on",
+            "pin_confirm": "123456", "interest_segment": "tecnologia", "marketing": "on",
         })
         self.assertTrue(Passport.objects.get().consent_marketing)
 
@@ -73,6 +74,7 @@ class PassportTests(TestCase):
         self.make_passport("5585999998888")
         response = self.client.post(reverse("register"), {
             "name": "Outra", "contact": "(85) 99999-8888", "pin": "123456", "pin_confirm": "123456",
+            "interest_segment": "tecnologia",
         })
         self.assertContains(response, "Não foi possível cadastrar")
         self.assertEqual(Passport.objects.count(), 1)
@@ -81,6 +83,7 @@ class PassportTests(TestCase):
         for contact in ("pessoa@example.com", "8532221234", "00 90000-0001"):
             response = self.client.post(reverse("register"), {
                 "name": "Pessoa", "contact": contact, "pin": "123456", "pin_confirm": "123456",
+                "interest_segment": "tecnologia",
             })
             self.assertEqual(response.status_code, 200)
             self.assertTrue(response.context["form"].errors)
@@ -96,7 +99,7 @@ class PassportTests(TestCase):
     def test_consent_checkbox_precedes_its_label_and_is_optional(self):
         response = self.client.get(reverse("register"))
         html = response.content.decode()
-        self.assertContains(response, "Celular com DDD")
+        self.assertContains(response, "Celular/WhatsApp com DDD")
         self.assertNotContains(response, "E-mail ou telefone")
         self.assertLess(html.index('name="marketing"'), html.index('for="id_marketing"'))
         self.assertFalse(response.context["form"].fields["marketing"].required)
@@ -171,6 +174,7 @@ class PassportTests(TestCase):
         self.assertContains(self.client.get(reverse("register")), "você confirma a visita a <strong>Área A</strong>")
         response = self.client.post(reverse("register"), {
             "name": "Pessoa", "contact": "85999998888", "pin": "123456", "pin_confirm": "123456",
+            "interest_segment": "tecnologia",
         })
         self.assertRedirects(response, url)
         self.assertContains(self.client.get(url), "Confirmar carimbo")

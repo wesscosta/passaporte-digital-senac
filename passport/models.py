@@ -38,6 +38,19 @@ class Stand(models.Model):
         return f"{self.name} — {self.event.name}"
 
 
+class InterestSegment(models.TextChoices):
+    MODA = "moda", "Moda"
+    BELEZA = "beleza", "Beleza"
+    SAUDE = "saude", "Saúde"
+    TECNOLOGIA = "tecnologia", "Tecnologia da Informação"
+    GASTRONOMIA = "gastronomia", "Gastronomia"
+    ARTES = "artes_design", "Artes e Design"
+    COMUNICACAO = "comunicacao", "Comunicação"
+    GESTAO = "gestao_comercio", "Gestão e Comércio"
+    TURISMO = "turismo", "Turismo"
+    OUTRAS = "outras", "Outras"
+
+
 class Passport(models.Model):
     event = models.ForeignKey(Event, on_delete=models.PROTECT, related_name="passports")
     # Identificador de atendimento, não é senha nem prova de identidade.
@@ -47,9 +60,16 @@ class Passport(models.Model):
     contact_digest = models.CharField(max_length=64)
     pin_hash = models.CharField(max_length=256)
     session_version = models.PositiveIntegerField(default=1)
+    interest_segment = models.CharField(
+        "segmento de interesse", max_length=24, choices=InterestSegment.choices, blank=True, default="",
+    )
     consent_marketing = models.BooleanField(default=False)
     consent_version = models.CharField(max_length=80)
     consent_recorded_at = models.DateTimeField()
+    # None identifica registros anteriores à introdução da escolha de imagem.
+    consent_image = models.BooleanField("autorização de imagem", null=True, blank=True, default=None)
+    consent_image_version = models.CharField("versão da autorização de imagem", max_length=80, blank=True, default="")
+    consent_image_recorded_at = models.DateTimeField("registro da escolha de imagem", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_stamp_at = models.DateTimeField(null=True, blank=True)
 

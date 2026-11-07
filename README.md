@@ -26,7 +26,7 @@ O PostgreSQL local fica em 127.0.0.1:55432, em volume Docker do projeto. As cred
 
 ## Fluxos implementados
 
-- Cadastro com nome, celular brasileiro com DDD, PIN e escolha opcional de marketing.
+- Cadastro com nome completo, celular brasileiro com DDD, um segmento de interesse e PIN. As escolhas de autorização de imagem e de comunicações são separadas, opcionais e registradas com versão provisória e horário.
 - Recuperação por contato + PIN, com invalidação de sessões anteriores do participante. O PIN não comprova posse do número nem identidade.
 - Código e QR temporários por estande. A equipe precisa estar autenticada e atribuída ao estande.
 - Leitura do QR pelo navegador com câmera autorizada; digitação de código e câmera nativa do celular como alternativas. O decodificador local é carregado sob demanda.

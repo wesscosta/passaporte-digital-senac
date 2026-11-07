@@ -1,0 +1,11 @@
+**
+!requirements.txt
+!requirements.prod.txt
+!manage.py
+!config/
+!config/**
+!passport/
+!passport/**
+**/__pycache__/
+**/*.pyc
+passport/tests/

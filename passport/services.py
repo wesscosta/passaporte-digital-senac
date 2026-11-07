@@ -13,6 +13,7 @@ from django.utils.crypto import salted_hmac
 from .models import AuditEntry, Event, Passport, RateBucket, Redemption, RedemptionTicket, Stamp, Stand
 
 CONSENT_VERSION = "marketing-v2-celular-provisoria"
+IMAGE_CONSENT_VERSION = "imagem-v1-circuito-provisoria"
 security_log = logging.getLogger("passport.security")
 
 

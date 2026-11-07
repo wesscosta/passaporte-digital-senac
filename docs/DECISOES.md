@@ -12,6 +12,8 @@ Nome e contato podem ser usados para marketing apenas mediante escolha separada 
 
 Decisão de 05/11: novos cadastros usam exclusivamente celular brasileiro com DDD; o prefixo +55 é normalizado. Registros legados com e-mail ou com prefixo 55 não são removidos e continuam elegíveis à recuperação. Isso não comprova posse do número. O texto opcional de marketing por celular tem uma nova versão de consentimento, distinta dos registros anteriores; permanece provisório e sujeito à revisão institucional. A marca, as cores e o motivo radial da referência visual foram incorporados para avaliação; a aplicação institucional ainda depende de aprovação.
 
+Implementação provisória de 06/11: o cadastro pede um segmento de interesse, independente das áreas e regras dos estandes. As escolhas de imagem e de comunicação são separadas e opcionais; a escolha de imagem tem versão e horário próprios. Registros anteriores permanecem sem segmento e com imagem não informada. A referência de autorização não comprova identidade, posse do telefone ou autorização válida de responsáveis; o texto e a operação dependem de aprovação institucional e não há fluxo de revogação implementado.
+
 Códigos de estande mudam a cada minuto. Aceita-se a janela anterior para evitar falha na virada: um código pode valer por até aproximadamente 120 segundos. QR e código não provam presença física: podem ser compartilhados. O código de retirada vale cinco minutos e pode ser regenerado, invalidando o anterior.
 
 Decisões de 06/11 (área da equipe, gestão e insígnias):

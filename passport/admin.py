@@ -1,10 +1,14 @@
+from secrets import randbelow
+
 from django.contrib import admin, messages
+from django.contrib.auth.hashers import make_password
+from django.db import transaction
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin
 from django.utils import timezone
 from .auth import StaffAdminAuthenticationForm, account_blocked_until, unlock_account
 from .models import AuditEntry, Event, Passport, RateBucket, Redemption, Stand, Stamp
-from .services import security_log
+from .services import audit, security_log
 
 # O /admin/ usa o mesmo limite de tentativas do acesso da equipe.
 admin.site.login_form = StaffAdminAuthenticationForm
@@ -71,10 +75,37 @@ class StandAdmin(admin.ModelAdmin):
 
 @admin.register(Passport)
 class PassportAdmin(admin.ModelAdmin):
-    list_display = ("id", "public_id", "name", "event", "consent_marketing", "created_at")
+    list_display = ("id", "public_id", "name", "event", "interest_segment", "consent_marketing", "consent_image", "created_at")
+    list_filter = ("interest_segment", "consent_marketing", "consent_image")
     search_fields = ("name", "public_id")
+    actions = ["reset_visitor_pin"]
+
+    def has_pin_reset_permission(self, request):
+        return request.user.is_superuser and request.user.is_active
+
+    @admin.action(description="Redefinir PIN de um visitante", permissions=["pin_reset"])
+    def reset_visitor_pin(self, request, queryset):
+        if not self.has_pin_reset_permission(request):
+            return
+        ids = list(queryset.values_list("pk", flat=True)[:2])
+        if len(ids) != 1:
+            self.message_user(request, "Selecione apenas um passaporte após confirmar a identidade do visitante.", messages.ERROR)
+            return
+        pin = f"{randbelow(1_000_000):06d}"
+        pin_hash = make_password(pin)
+        with transaction.atomic():
+            passport = Passport.objects.select_for_update().get(pk=ids[0])
+            passport.pin_hash = pin_hash
+            passport.session_version += 1
+            passport.save(update_fields=["pin_hash", "session_version"])
+            audit(request.user, "visitor.pin_reset", target=str(passport.public_id))
+        self.message_user(request, f"Novo PIN: {pin}. Informe-o somente ao titular do passaporte.")
     exclude = ("pin_hash", "contact_digest", "session_version")
-    readonly_fields = ("public_id", "contact", "name", "event", "consent_marketing", "consent_version", "consent_recorded_at", "last_stamp_at")
+    readonly_fields = (
+        "public_id", "contact", "name", "event", "interest_segment",
+        "consent_marketing", "consent_version", "consent_recorded_at",
+        "consent_image", "consent_image_version", "consent_image_recorded_at", "last_stamp_at",
+    )
     def has_add_permission(self, request):
         return False
 
