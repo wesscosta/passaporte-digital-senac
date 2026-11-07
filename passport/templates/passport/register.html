@@ -5,9 +5,9 @@
 <a class="back" href="{% url 'home' %}">{% include "passport/_icon.html" with icon="back" only %} Voltar ao início</a>
 <div class="form-card">
   <p class="eyebrow">Vamos começar</p><h1>Crie seu passaporte</h1>
-  <p>Informe seu celular com DDD e escolha um PIN de seis números. Guarde os dois para entrar de novo no passaporte.</p>
+  <p>Informe seus dados para criar o passaporte. No campo Celular/WhatsApp, inclua o DDD.</p>
   {% if pending %}<p class="pending-visit">Depois do cadastro, você confirma a visita a <strong>{{ pending.stand.name }}</strong>. A leitura vale até <time datetime="{{ pending.expires_at|date:'c' }}">{{ pending.expires_at|time:"H:i" }}</time>.</p>{% endif %}
-  <p class="notice">O PIN permite entrar de novo no passaporte, mas não confirma a posse do telefone. Política de privacidade ainda pendente de aprovação.</p>
+  <p class="notice">Crie um PIN de 6 dígitos e guarde-o. Você precisará dele para acessar seu passaporte novamente. Não compartilhe seu PIN.</p>
   <p class="testing-note">Ambiente de teste: não informe dados reais.</p>
   {% include "passport/_error_summary.html" with form=form pin_cleared=True only %}
   <form method="post" novalidate>
