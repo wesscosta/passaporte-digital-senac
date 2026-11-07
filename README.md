@@ -89,6 +89,20 @@ Níveis de acesso (todos exigem a propriedade de equipe, is_staff):
 5. Exceção sem essa conferência: só para quem é gestor (passport.manage_event) e também tem passport.reset_pin, com justificativa de pelo menos 20 caracteres.
 6. O PIN de 6 dígitos é aleatório, gravado só como hash, e mostrado uma única vez numa página sem cache. Não vai para URL, mensagem, log nem auditoria. As sessões do visitante em outros aparelhos são encerradas. A auditoria guarda operador, passaporte, horário, método e, na exceção, a justificativa.
 7. Limites: 30 buscas por operador e 20 redefinições por operador a cada 10 minutos; 3 redefinições por passaporte por hora; uma segunda redefinição do mesmo passaporte em menos de 1 minuto é recusada (proteção contra reenvio). A ação de redefinir PIN no /admin/ foi retirada.
+8. Se a resposta com o novo PIN se perder (rede caiu, aba fechada, erro ao montar a página): o PIN já foi trocado e as sessões do visitante já foram encerradas, mas ninguém conhece o novo valor, e ele não pode ser recuperado (só o hash é gravado). Recarregar ou reenviar o formulário não mostra nem gera PIN. Aguarde 1 minuto e faça uma nova redefinição, com nova conferência; ela conta no limite de 3 por hora. Em relatórios de erro (página de depuração ou e-mail de erro), o PIN aparece como [PIN oculto].
+
+### Comprovantes de leitura do QR
+
+O comprovante criado quando um QR é lido sem sessão vale 5 minutos. O valor fica só na sessão (gravada no banco; o cookie leva apenas a chave da sessão) e o banco guarda o digest. O primeiro passaporte que tenta usá-lo o reivindica: se outra pessoa entrar depois no mesmo navegador, a leitura não serve para ela.
+
+Limpeza: a cada novo comprovante, os vencidos há mais de um dia (usados ou não) são apagados. Não há tarefa agendada; num período sem leituras, os vencidos ficam na tabela até a próxima leitura. Eles não têm dado pessoal, só evento, estande, horários e, se usados, o passaporte. Para apagar manualmente os vencidos: `python manage.py shell -c "from django.utils import timezone; from passport.models import ScanVoucher; print(ScanVoucher.objects.filter(expires_at__lt=timezone.now()).delete())"`.
+
+### Migração 0004 (comprovante do QR e permissão de redefinição)
+
+- Aditiva: cria a tabela passport_scanvoucher e a permissão passport.reset_pin. Não altera nem lê tabelas existentes; o tempo de execução independe do volume de passaportes.
+- Ordem: backup do banco, build da imagem nova, `docker compose -f compose.prod.yaml run --rm web python manage.py migrate`, `up -d web`. Conceda a permissão (seção anterior) depois do deploy.
+- Rollback só de código (recomendado): suba a imagem anterior sem reverter a migração. A versão anterior funciona com o banco em 0004 (testado): ignora a tabela e a permissão. Comprovantes em andamento se perdem e o visitante lê o QR de novo; o grupo com reset_pin fica sem efeito e a ação de PIN do /admin/ da versão anterior volta para o superusuário.
+- Reverter o esquema, se necessário, com a imagem nova antes de trocar: `python manage.py migrate passport 0003`. Remove só a tabela de comprovantes; passaportes, carimbos e entregas não mudam. A permissão continua cadastrada, sem efeito.
 
 O cadastro local sintético anterior, ui.smoke@example.invalid, é um registro legado e não foi excluído. Novos cadastros aceitam apenas celular; a recuperação mantém compatibilidade com os contatos anteriores.
 

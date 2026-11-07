@@ -90,6 +90,14 @@ Resultados da versão inicial, preservados para histórico:
 - Chromium 151 e WebKit 26.5 headless, 320 e 390 px: QR lido antes do cadastro, código do QR vencido durante o cadastro e visita confirmada pelo comprovante; busca, conferência por teclado (rádios, caixa e envio por Enter), erro com resumo focado, PIN exibido uma vez, recarregar sem novo PIN (409), sem rolagem horizontal. Imagem Docker com config.settings_production (Chromium; WebKit recusa cookies Secure em HTTP local): web e banco saudáveis, estáticos com hash, X-App-Version presente, mesma jornada aprovada e log sem PIN.
 - Não verificado: aparelhos reais e leitor de tela; a conferência presencial é declarada pelo operador, sem verificação técnica; o tempo real de cadastro de visitantes não foi medido.
 
+Revisão antes da integração (07/11/2026):
+
+- Corrigido: um comprovante em espera podia ser usado por outra pessoa que entrasse depois no mesmo navegador (a troca de chave preserva a sessão). Agora o primeiro passaporte que o usa o reivindica. Outra sessão não o alcança: o valor fica só na sessão gravada no banco.
+- Corrigido: numa falha ao montar a resposta, o relatório de erro do Django exibia o PIN nas variáveis locais e no contexto do template. O PIN passou a ter representação mascarada ([PIN oculto]) e as variáveis foram marcadas como sensíveis; teste com DEBUG ligado e falha simulada confirma a ausência do valor.
+- Confirmado por teste: o POST de redefinição reconfere permissão (403 após revogação), evento ativo (404) e evento do passaporte (404) sem alterar nada; resposta de reenvio (409) sem PIN.
+- Migração 0004 em PostgreSQL isolado: banco criado pela versão b1aeb3c com passaporte e carimbo; 0004 aplicada pela versão nova; a versão anterior, com o banco em 0004, passou no check, não tinha migrações pendentes e atendeu início, cadastro, entrada, passaporte e carimbo; a reversão para 0003 removeu só a tabela de comprovantes, preservando os dados, e a 0004 foi reaplicada.
+- 181 testes passaram no PostgreSQL isolado; nove testes JavaScript passaram.
+
 ## Bloqueadores antes de qualquer evento
 
 1. Definir e testar carga esperada, picos e limites; executar testes de carga e estresse em ambiente semelhante ao real. Medir tempos, falhas, CPU, conexões e locks de banco. Um teste de duas requisições concorrentes não é teste de capacidade. O servidor runserver é apenas para desenvolvimento.

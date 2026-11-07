@@ -36,6 +36,8 @@ Decisões de 07/11 (A3 e A4):
 
 - QR lido sem sessão: o código é validado na leitura e vira um comprovante de 5 minutos no servidor. A confirmação continua explícita (um toque) depois do cadastro ou da entrada. QR não prova presença; o comprovante só estende o prazo da leitura válida.
 - Comprovante em espera não é consumido; duplicidade encerra o comprovante sem novo carimbo. Visitante já conectado mantém o fluxo anterior, com o código do QR.
+- O primeiro passaporte que tenta usar o comprovante o reivindica; outro visitante que entre depois no mesmo navegador não o aproveita.
+- PIN perdido na resposta não é recuperável: exige nova redefinição após 1 minuto. O PIN é um tipo de texto com representação mascarada, para não aparecer em relatórios de erro.
 - Redefinição de PIN pela equipe com permissão própria (passport.reset_pin), busca exata por celular ou identificador, conferência presencial declarada pelo operador e exceção restrita a gestor autorizado com justificativa. A busca usa POST para que o celular não vá para URL e logs de acesso. A ação equivalente do /admin/, que exibia o PIN em mensagem, foi retirada.
 
 ## Arquitetura em avaliação

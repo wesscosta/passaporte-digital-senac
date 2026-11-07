@@ -10,6 +10,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.db import transaction
 from django.utils import timezone
 from django.utils.crypto import salted_hmac
+from django.views.decorators.debug import sensitive_variables
 from .models import AuditEntry, Event, Passport, RateBucket, Redemption, RedemptionTicket, ScanVoucher, Stamp, Stand
 
 CONSENT_VERSION = "marketing-v2-celular-provisoria"
@@ -202,15 +203,21 @@ def issue_scan_voucher(stand, code, now=None):
     return token, voucher
 
 
-def find_scan_voucher(token, now=None):
-    """Comprovante ainda utilizável (não consumido, no prazo, evento e estande ativos) ou None."""
+def find_scan_voucher(token, now=None, passport=None):
+    """Comprovante ainda utilizável (não consumido, no prazo, evento e estande ativos) ou None.
+
+    Com `passport`, também exclui o comprovante já reivindicado por outro passaporte.
+    """
     if not token:
         return None
     now = now or timezone.now()
-    return ScanVoucher.objects.select_related("stand", "event").filter(
+    voucher = ScanVoucher.objects.select_related("stand", "event").filter(
         token_digest=digest("scan_voucher", token), consumed_at__isnull=True, expires_at__gt=now,
         event__active=True, stand__active=True,
     ).first()
+    if voucher and passport is not None and voucher.claimed_by_id not in (None, passport.pk):
+        return None
+    return voucher
 
 
 def record_stamp_with_voucher(passport_id, version, token, now=None):
@@ -231,9 +238,15 @@ def record_stamp_with_voucher(passport_id, version, token, now=None):
         p = Passport.objects.select_for_update().select_related("event").get(pk=passport_id)
         if p.session_version != version:
             return "session", 0, voucher
+        if voucher.claimed_by_id not in (None, p.pk):
+            # Comprovante de outro visitante (outra pessoa entrou no mesmo navegador depois da espera).
+            return "invalid", 0, voucher
         stand = Stand.objects.filter(pk=voucher.stand_id, event=p.event, active=True).first()
         if not p.event.active or p.event_id != voucher.event_id or not stand:
             return "invalid", 0, voucher
+        if voucher.claimed_by_id is None:
+            voucher.claimed_by = p
+            voucher.save(update_fields=["claimed_by"])
         result, seconds = _stamp_locked(p, stand, now)
         if result in ("ok", "duplicate"):
             voucher.consumed_at, voucher.consumed_by = now, p
@@ -246,10 +259,19 @@ PIN_RESET_METHODS = {
     "ligacao": "Ligação ou mensagem de teste para o número cadastrado recebida no aparelho do visitante",
     "excecao_gestor": "Exceção autorizada por gestor, com justificativa",
 }
+class OneTimePin(str):
+    """PIN recém-gerado. Exibe o valor só quando convertido em texto (na página); repr mascarado mantém o PIN
+    fora de relatórios de erro (página de depuração, e-mails de erro), inclusive no contexto do template."""
+
+    def __repr__(self):
+        return "'[PIN oculto]'"
+
+
 # Reenvio acidental (toque duplo, voltar e reenviar): não gera um segundo PIN logo em seguida.
 PIN_RESET_COOLDOWN_SECONDS = 60
 
 
+@sensitive_variables("pin", "pin_hash")
 def reset_visitor_pin(passport_id, event_id, operator, method, justification=""):
     """Gera um PIN aleatório de 6 dígitos, grava só o hash e invalida as sessões do visitante.
 
@@ -258,8 +280,8 @@ def reset_visitor_pin(passport_id, event_id, operator, method, justification="")
     """
     if method not in PIN_RESET_METHODS:
         return "invalid", None
-    pin = f"{secrets.randbelow(1_000_000):06d}"
-    pin_hash = make_password(pin)  # custo do hash fora do bloqueio
+    pin = OneTimePin(f"{secrets.randbelow(1_000_000):06d}")
+    pin_hash = make_password(str(pin))  # custo do hash fora do bloqueio
     with transaction.atomic():
         p = Passport.objects.select_for_update().filter(pk=passport_id, event_id=event_id, event__active=True).first()
         if not p:

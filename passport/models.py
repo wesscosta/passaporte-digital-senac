@@ -119,6 +119,9 @@ class ScanVoucher(models.Model):
     expires_at = models.DateTimeField(db_index=True)
     consumed_at = models.DateTimeField(null=True, blank=True)
     consumed_by = models.ForeignKey("Passport", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    # Primeiro passaporte que tentou usar o comprovante (por exemplo, em espera). Outro visitante que entre depois
+    # no mesmo navegador não pode aproveitar a leitura.
+    claimed_by = models.ForeignKey("Passport", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
 
 
 class RateBucket(models.Model):

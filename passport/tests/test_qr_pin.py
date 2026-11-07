@@ -17,6 +17,8 @@ from passport.services import (
 from passport.views import VOUCHER_SESSION_KEY
 
 FAST_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+# PIN forçado no teste de falha da resposta; fora do trecho do traceback para não aparecer no código-fonte exibido.
+FORCED_PIN = 271828
 
 
 def make_passport(event, contact="85999990000", name="Pessoa Sintética", pin="123456"):
@@ -183,6 +185,32 @@ class ScanVoucherTests(TestCase):
         sign_in(other, p)
         self.assertRedirects(other.post(reverse("scan_voucher_confirm")), reverse("passport"), fetch_redirect_response=False)
         self.assertFalse(Stamp.objects.exists())
+
+    def test_waiting_voucher_cannot_be_used_by_another_visitor_in_same_browser(self):
+        first = make_passport(self.event, contact="85999990010", name="Primeira Pessoa")
+        second = make_passport(self.event, contact="85999990011", name="Segunda Pessoa")
+        now = timezone.now()
+        Stamp.objects.create(passport=first, stand=self.b, created_at=now - timedelta(seconds=30))
+        Passport.objects.filter(pk=first.pk).update(last_stamp_at=now - timedelta(seconds=30))
+        self.scan()
+        self.assertRedirects(self.client.post(reverse("recover"), {"contact": first.contact, "pin": "123456"}),
+                             reverse("scan_voucher_confirm"))
+        self.client.post(reverse("scan_voucher_confirm"))  # espera: comprovante mantido e reivindicado
+        voucher = ScanVoucher.objects.get()
+        self.assertEqual(voucher.claimed_by, first)
+        token = self.client.session[VOUCHER_SESSION_KEY]
+        # Outra pessoa entra no mesmo navegador: a troca de chave preserva a sessão, mas não a leitura alheia.
+        self.client.post(reverse("recover"), {"contact": second.contact, "pin": "123456"})
+        self.assertContains(self.client.get(reverse("scan_voucher_confirm")), "A leitura do QR expirou", status_code=410)
+        self.assertNotContains(self.client.get(reverse("passport")), "Visita pendente")
+        second.refresh_from_db()  # a entrada incrementou a versão da sessão
+        self.assertEqual(record_stamp_with_voucher(second.pk, second.session_version, token)[0], "invalid")
+        self.assertFalse(Stamp.objects.filter(passport=second).exists())
+        self.assertIsNone(ScanVoucher.objects.get().consumed_at)
+        # O primeiro visitante ainda pode usar a própria leitura após o intervalo.
+        Passport.objects.filter(pk=first.pk).update(last_stamp_at=now - timedelta(seconds=301))
+        first.refresh_from_db()
+        self.assertEqual(record_stamp_with_voucher(first.pk, first.session_version, token)[0], "ok")
 
     def test_confirmation_requires_csrf(self):
         client = Client(enforce_csrf_checks=True)
@@ -381,6 +409,53 @@ class PinResetTests(TestCase):
         self.assertContains(response, "acabou de ser redefinido", status_code=409)
         self.p.refresh_from_db()
         self.assertEqual((self.p.pin_hash, self.p.session_version), (first_hash, 2))
+
+    def test_post_rechecks_permission_event_and_passport(self):
+        client, user = self.operator(groups=(self.reset_group,))
+        page = client.get(self.confirm_url())
+        nonce = re.search(r'name="nonce" value="([^"]+)"', page.content.decode()).group(1)
+        data = {"method": "aparelho", "confirmed": "on", "nonce": nonce}
+        user.groups.remove(self.reset_group)
+        self.assertEqual(client.post(self.confirm_url(), data).status_code, 403)
+        user.groups.add(self.reset_group)
+        Event.objects.filter(pk=self.event.pk).update(active=False)
+        self.assertEqual(client.post(self.confirm_url(), data).status_code, 404)
+        Event.objects.filter(pk=self.event.pk).update(active=True)
+        other = Event.objects.create(name="Outro", slug="outro", active=False)
+        Passport.objects.filter(pk=self.p.pk).update(event=other)
+        self.assertEqual(client.post(self.confirm_url(), data).status_code, 404)
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.session_version, 1)
+        self.assertFalse(AuditEntry.objects.filter(action="visitor.pin_reset").exists())
+
+    @override_settings(DEBUG=True)
+    def test_lost_pin_response_does_not_leak_and_requires_new_reset(self):
+        from unittest import mock
+        from passport import views
+        client, _ = self.operator(groups=(self.reset_group,))
+        client.raise_request_exception = False
+        original = views.render
+
+        def failing_render(request, template, *args, **kwargs):
+            if template == "passport/staff_pin_done.html":
+                raise RuntimeError("falha simulada ao montar a resposta")
+            return original(request, template, *args, **kwargs)
+
+        with mock.patch("passport.services.secrets.randbelow", return_value=FORCED_PIN), \
+                mock.patch("passport.views.render", side_effect=failing_render):
+            response = self.submit(client)
+        self.assertEqual(response.status_code, 500)
+        self.assertNotIn(str(FORCED_PIN), response.content.decode())  # relatório de erro sem o PIN
+        self.assertIn("[PIN oculto]", response.content.decode())
+        self.p.refresh_from_db()
+        # O PIN já foi trocado e as sessões encerradas; ninguém o conhece. Nova redefinição só após 1 minuto.
+        self.assertTrue(check_password(str(FORCED_PIN), self.p.pin_hash))
+        self.assertEqual(self.p.session_version, 2)
+        response = self.submit(client)
+        self.assertContains(response, "acabou de ser redefinido", status_code=409)
+        self.assertNotIn(str(FORCED_PIN), response.content.decode())
+        AuditEntry.objects.update(created_at=timezone.now() - timedelta(minutes=2))
+        self.assertEqual(self.submit(client).status_code, 200)
 
     def test_resets_per_passport_are_limited(self):
         client, _ = self.operator(groups=(self.reset_group,))

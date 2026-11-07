@@ -16,6 +16,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_safe
 from django.core.paginator import Paginator
 from django.db.models import Count, Exists, OuterRef, Q
@@ -107,9 +108,9 @@ def sign_in_participant(request, p, *, remember=True):
 VOUCHER_SESSION_KEY = "scan_voucher"
 
 
-def pending_voucher(request, event=None):
+def pending_voucher(request, event=None, passport=None):
     """Comprovante válido da leitura de QR guardado nesta sessão, ou None."""
-    voucher = find_scan_voucher(request.session.get(VOUCHER_SESSION_KEY))
+    voucher = find_scan_voucher(request.session.get(VOUCHER_SESSION_KEY), passport=passport)
     if voucher and event and voucher.event_id != event.pk:
         return None
     return voucher
@@ -256,7 +257,7 @@ def passport_page(request, p):
         "next_stamp_at": next_stamp_at(p) if done < len(stands) else None,
         "gap": interval_label(p.event.gap_seconds),
         "celebrate_stamp": any(row["new"] and row["visited"] for row in rows),
-        "pending": pending_voucher(request, p.event),
+        "pending": pending_voucher(request, p.event, p),
     })
 
 
@@ -364,7 +365,7 @@ def scan_voucher_confirm(request, p):
             return redirect(reverse("manual_stamp") + "#leitor")
         notify_stamp_result(request, p, voucher.stand_id, result, seconds)
         return redirect("passport")
-    voucher = pending_voucher(request, p.event)
+    voucher = pending_voucher(request, p.event, p)
     if not voucher:
         request.session.pop(VOUCHER_SESSION_KEY, None)
         return render(request, "passport/scan_voucher_expired.html", status=410)
@@ -653,6 +654,7 @@ def pin_reset_search(request):
 
 @never_cache
 @pin_reset_only
+@sensitive_variables("pin")
 def pin_reset_confirm(request, public_id):
     event = current_event()
     raw = normalize_public_id(public_id)
